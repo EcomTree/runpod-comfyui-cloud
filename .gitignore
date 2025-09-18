@@ -1,0 +1,89 @@
+# RunPod ComfyUI H200 - Git Ignore
+
+# Build artifacts
+*.log
+*.tmp
+build/
+dist/
+
+# Docker
+.dockerignore.bak
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Node.js (if any frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Secret files
+.env
+.env.local
+.env.*.local
+secrets/
+*.key
+*.pem
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Memory Bank (local development)
+memory-bank/
+.memory-bank/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# RunPod specific
+runpod-config.json
+pod-logs/
+
+# Docker build cache
+.buildx-cache/
+docker-build.log

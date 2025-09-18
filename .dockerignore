@@ -1,0 +1,66 @@
+# Docker ignore for RunPod ComfyUI H200
+
+# Git
+.git/
+.gitignore
+
+# Documentation (not needed in container)
+README.md
+docs/
+*.md
+
+# Build artifacts
+build/
+dist/
+*.log
+*.tmp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files  
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+.env
+
+# Node.js
+node_modules/
+npm-debug.log
+
+# Testing
+tests/
+test/
+.coverage
+htmlcov/
+
+# Scripts (not needed in container)
+scripts/
+.github/
+
+# Memory bank
+memory-bank/
+.memory-bank/
+
+# Secrets
+.env
+*.key
+*.pem
+secrets/
+
+# Temporary
+tmp/
+temp/
+.tmp/

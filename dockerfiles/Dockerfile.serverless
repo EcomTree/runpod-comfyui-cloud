@@ -1,0 +1,420 @@
+# syntax=docker/dockerfile:1
+# Base Image: Sebastian's bewährtes RunPod Template (CUDA 12.8.1 existiert & läuft stabil)
+FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04
+
+# Metadaten für das Image
+LABEL maintainer="Sebastian"
+LABEL description="ComfyUI Serverless Worker with REST API for NVIDIA H200 - Stateless Design"
+
+# Umgebungsvariable, um interaktive Abfragen bei Installationen zu unterdrücken
+ENV DEBIAN_FRONTEND=noninteractive
+
+# --- TEIL 1: Serverless Worker Umgebung ---
+
+# Serverless-spezifische Environment Variables
+ENV RUNPOD_POD_ID=serverless
+ENV PYTHONUNBUFFERED=1
+ENV REFRESH_WORKER=false
+ENV COMFY_HOST=127.0.0.1
+ENV COMFY_PORT=8188
+# H200 Advanced Optimizations (erweitert basierend auf Kimi's Feedback)
+ENV CUDA_MODULE_LOADING=LAZY
+ENV PYTORCH_NVML_BASED_CUDA_CHECK=1
+ENV NCCL_P2P_DISABLE=0
+ENV NCCL_IB_DISABLE=0
+
+# --- TEIL 2: System Setup & Dependencies ---
+
+# System-Abhängigkeiten installieren (inkl. für API Server)
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y git wget curl unzip supervisor && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Python-Abhängigkeiten in einer einzigen Schicht installieren
+# H200-optimierte Pakete + Serverless Worker Dependencies
+RUN pip uninstall -y torch torchvision torchaudio xformers && \
+    pip install --no-cache-dir torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128 && \
+    pip install --no-cache-dir ninja flash-attn --no-build-isolation && \
+    pip install --no-cache-dir tensorrt nvidia-tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy && \
+    pip install --no-cache-dir runpod requests fastapi uvicorn python-multipart aiofiles
+
+# Workspace einrichten
+WORKDIR /workspace
+
+# --- TEIL 3: ComfyUI Installation (Serverless-optimiert) ---
+
+# ComfyUI klonen und dessen Python-Abhängigkeiten installieren
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
+    cd ComfyUI && \
+    git checkout v0.3.57 && \
+    pip install --no-cache-dir $(grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" | tr '\n' ' ') && \
+    pip install --no-cache-dir librosa soundfile av moviepy
+
+# ComfyUI Manager installieren
+RUN cd /workspace/ComfyUI/custom_nodes && \
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
+    cd ComfyUI-Manager && \
+    pip install --no-cache-dir -r requirements.txt
+
+# --- TEIL 4: H200 Performance-Optimierungen ---
+
+WORKDIR /workspace/ComfyUI
+
+# H200 Optimierungs-Skript erstellen (erweitert basierend auf Kimi's Analyse)
+RUN <<EOF cat > h200_optimizations.py
+import torch
+import os
+
+print("🚀 Applying enhanced H200 optimizations...")
+
+# H200 Memory & Performance Backend-Optimierungen (Basis)
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.deterministic = False
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
+# H200 Advanced: 4th Gen Tensor Core optimizations
+torch.backends.cuda.enable_flash_sdp(True)
+torch.backends.cuda.enable_mem_efficient_sdp(True)
+torch.backends.cuda.enable_math_sdp(True)
+
+# Serverless-optimierte Memory Settings
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:2048,expandable_segments:True,roundup_power2_divisions:16"
+os.environ["TORCH_ALLOW_TF32_CUBLAS_OVERRIDE"] = "1"
+
+# H200 96GB HBM3 specific optimizations
+os.environ["CUDA_CACHE_DISABLE"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+# Pre-warm GPU für Serverless (reduziert First-Request Latency)
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+    torch.cuda.synchronize()
+    # Dummy tensor operation für Warm-up
+    dummy = torch.randn(1024, 1024, device='cuda', dtype=torch.float16)
+    _ = dummy @ dummy.T
+    del dummy
+    torch.cuda.empty_cache()
+
+print("✅ Enhanced H200 optimizations applied!")
+EOF
+
+# Extra Model Paths Konfiguration erstellen
+RUN <<EOF cat > extra_model_paths.yaml
+comfyui:
+    checkpoints: models/checkpoints/
+    diffusion_models: models/diffusion_models/
+    vae: models/vae/
+    loras: models/loras/
+    text_encoders: models/text_encoders/
+    audio_encoders: models/audio_encoders/
+EOF
+
+# --- TEIL 6: Serverless Worker Handler ---
+
+# Serverless Worker Handler erstellen
+RUN <<EOF cat > /workspace/handler.py
+#!/usr/bin/env python3
+"""
+ComfyUI Serverless Worker Handler
+Empfängt REST API calls und leitet sie an ComfyUI weiter
+"""
+
+import os
+import sys
+import json
+import time
+import base64
+import runpod
+import requests
+import subprocess
+import threading
+from uuid import uuid4
+from typing import Dict, Any, Optional, List
+
+# Globale Variable für ComfyUI Prozess
+comfyui_process = None
+comfyui_ready = False
+
+def start_comfyui():
+    """Startet ComfyUI als Background-Prozess für Serverless Worker"""
+    global comfyui_process, comfyui_ready
+    
+    print("🚀 Starting ComfyUI for Serverless Worker...")
+    
+    # H200-Optimierungen laden
+    sys.path.append('/workspace/ComfyUI')
+    exec(open('/workspace/ComfyUI/h200_optimizations.py').read())
+    
+    # ComfyUI als subprocess starten
+    cmd = [
+        sys.executable, "main.py",
+        "--listen", "127.0.0.1",
+        "--port", str(os.getenv("COMFY_PORT", "8188")),
+        "--highvram",
+        "--bf16-vae", 
+        "--disable-smart-memory",
+        "--preview-method", "auto"
+    ]
+    
+    comfyui_process = subprocess.Popen(
+        cmd,
+        cwd="/workspace/ComfyUI",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+    
+    # Warten bis ComfyUI bereit ist
+    wait_for_comfyui()
+
+def wait_for_comfyui():
+    """Wartet bis ComfyUI API bereit ist"""
+    global comfyui_ready
+    
+    max_attempts = 30
+    for attempt in range(max_attempts):
+        try:
+            response = requests.get(f"http://{os.getenv('COMFY_HOST', '127.0.0.1')}:{os.getenv('COMFY_PORT', '8188')}/system_stats", timeout=5)
+            if response.status_code == 200:
+                comfyui_ready = True
+                print("✅ ComfyUI is ready!")
+                return
+        except Exception as e:
+            print(f"Waiting for ComfyUI... attempt {attempt + 1}/{max_attempts}")
+            time.sleep(2)
+    
+    raise Exception("ComfyUI failed to start within timeout")
+
+def upload_images_to_comfyui(images: Dict[str, Any]) -> Dict[str, str]:
+    """Lädt Bilder zu ComfyUI hoch und gibt filename mappings zurück"""
+    uploaded_files = {}
+    comfy_url = f"http://{os.getenv('COMFY_HOST', '127.0.0.1')}:{os.getenv('COMFY_PORT', '8188')}"
+    
+    for img_name, img_data in images.items():
+        try:
+            # Base64 oder URL handling
+            if isinstance(img_data, str):
+                if img_data.startswith('data:image'):
+                    # Base64 data URL
+                    header, data = img_data.split(',', 1)
+                    img_bytes = base64.b64decode(data)
+                elif img_data.startswith('http'):
+                    # URL - download first
+                    img_response = requests.get(img_data, timeout=30)
+                    img_response.raise_for_status()
+                    img_bytes = img_response.content
+                else:
+                    # Raw base64
+                    img_bytes = base64.b64decode(img_data)
+            else:
+                img_bytes = img_data
+            
+            # Upload zu ComfyUI
+            files = {'image': (f"{img_name}.png", img_bytes, 'image/png')}
+            upload_response = requests.post(f"{comfy_url}/upload/image", files=files)
+            upload_response.raise_for_status()
+            
+            result = upload_response.json()
+            uploaded_files[img_name] = result.get('name', f"{img_name}.png")
+            print(f"✅ Uploaded image: {img_name} → {uploaded_files[img_name]}")
+            
+        except Exception as e:
+            print(f"❌ Failed to upload image {img_name}: {e}")
+            raise
+    
+    return uploaded_files
+
+def submit_workflow(workflow: Dict[str, Any], images: Optional[Dict] = None) -> str:
+    """Submitted Workflow zu ComfyUI und gibt prompt_id zurück"""
+    
+    # Bilder hochladen falls vorhanden und in workflow injection
+    uploaded_files = {}
+    if images:
+        uploaded_files = upload_images_to_comfyui(images)
+        
+        # Optional: Auto-inject uploaded filenames in LoadImage nodes
+        for node_id, node_data in workflow.items():
+            if node_data.get('class_type') == 'LoadImage' and 'image' in node_data.get('inputs', {}):
+                img_input = node_data['inputs']['image']
+                if img_input in uploaded_files:
+                    node_data['inputs']['image'] = uploaded_files[img_input]
+                    print(f"🔄 Auto-injected {img_input} → {uploaded_files[img_input]} in node {node_id}")
+    
+    # Workflow an ComfyUI /prompt endpoint senden  
+    comfy_url = f"http://{os.getenv('COMFY_HOST', '127.0.0.1')}:{os.getenv('COMFY_PORT', '8188')}"
+    
+    prompt_data = {
+        "prompt": workflow,
+        "client_id": str(uuid4())
+    }
+    
+    response = requests.post(f"{comfy_url}/prompt", json=prompt_data)
+    response.raise_for_status()
+    
+    result = response.json()
+    return result["prompt_id"]
+
+def interrupt_workflow():
+    """Sendet Interrupt-Signal an ComfyUI"""
+    try:
+        comfy_url = f"http://{os.getenv('COMFY_HOST', '127.0.0.1')}:{os.getenv('COMFY_PORT', '8188')}"
+        response = requests.post(f"{comfy_url}/interrupt", timeout=5)
+        response.raise_for_status()
+        print("🛑 Sent interrupt signal to ComfyUI")
+    except Exception as e:
+        print(f"⚠️ Failed to send interrupt: {e}")
+
+def wait_for_completion(prompt_id: str) -> Dict[str, Any]:
+    """Wartet auf Completion des Workflows mit verbessertem Timeout Handling"""
+    
+    comfy_url = f"http://{os.getenv('COMFY_HOST', '127.0.0.1')}:{os.getenv('COMFY_PORT', '8188')}"
+    
+    # Polling-basierte Lösung (einfacher als WebSocket für Serverless)
+    max_attempts = 300  # 5 Minuten timeout
+    for attempt in range(max_attempts):
+        try:
+            # History abrufen
+            response = requests.get(f"{comfy_url}/history/{prompt_id}", timeout=10)
+            if response.status_code == 200:
+                history = response.json()
+                if prompt_id in history:
+                    return history[prompt_id]
+            
+            # Queue status checken für besseres debugging
+            if attempt % 30 == 0:  # Every 30 seconds
+                queue_response = requests.get(f"{comfy_url}/queue", timeout=5)
+                if queue_response.status_code == 200:
+                    queue_info = queue_response.json()
+                    print(f"⏳ Queue status: Running={len(queue_info.get('queue_running', []))}, Pending={len(queue_info.get('queue_pending', []))}")
+                    
+        except Exception as e:
+            print(f"Error checking completion: {e}")
+            
+        time.sleep(1)
+    
+    # Timeout erreicht - Interrupt senden vor Exception
+    print(f"⏰ Timeout reached for workflow {prompt_id}, sending interrupt...")
+    interrupt_workflow()
+    raise Exception(f"Workflow {prompt_id} did not complete within timeout (5 minutes)")
+
+def handler(job):
+    """Main Serverless Worker Handler"""
+    
+    try:
+        # ComfyUI starten falls nicht bereit
+        if not comfyui_ready:
+            start_comfyui()
+        
+        # Input validieren
+        job_input = job.get("input", {})
+        workflow = job_input.get("workflow")
+        images = job_input.get("images", {})
+        
+        if not workflow:
+            return {"error": "No workflow provided"}
+        
+        print(f"🎯 Processing workflow for job {job.get('id', 'unknown')}")
+        
+        # Workflow an ComfyUI senden
+        prompt_id = submit_workflow(workflow, images)
+        print(f"📝 Submitted workflow with prompt_id: {prompt_id}")
+        
+        # Auf Completion warten
+        result = wait_for_completion(prompt_id)
+        print(f"✅ Workflow completed: {prompt_id}")
+        
+        # Stateless cleanup ohne Full-Worker-Refresh (bessere Performance)
+        cleanup_for_next_request()
+        
+        return {
+            "prompt_id": prompt_id,
+            "result": result,
+            "outputs": extract_output_urls(result)
+        }
+        
+    except Exception as e:
+        print(f"❌ Error in handler: {str(e)}")
+        # Bei Fehler trotzdem cleanup versuchen
+        try:
+            cleanup_for_next_request()
+        except:
+            pass
+        return {"error": str(e)}
+
+def cleanup_for_next_request():
+    """Stateless cleanup ohne Worker-Restart (Kimi's Empfehlung)"""
+    try:
+        import gc
+        # GPU Memory cleanup
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+        
+        # Python garbage collection
+        gc.collect()
+        
+        # Temp files cleanup (serverless-optimiert)
+        import tempfile
+        import shutil
+        temp_dir = tempfile.gettempdir()
+        for item in os.listdir(temp_dir):
+            if item.startswith('comfyui_') or item.startswith('tmp'):
+                try:
+                    item_path = os.path.join(temp_dir, item)
+                    if os.path.isfile(item_path):
+                        os.remove(item_path)
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+                except:
+                    pass
+        
+        print("🧹 Stateless cleanup completed")
+    except Exception as e:
+        print(f"⚠️ Cleanup warning: {e}")
+
+def extract_output_urls(result: Dict[str, Any]) -> List[str]:
+    """Extrahiert Output URLs aus ComfyUI Result"""
+    outputs = []
+    try:
+        # ComfyUI history format durchsuchen
+        for node_id, node_output in result.get('outputs', {}).items():
+            if 'images' in node_output:
+                for img_info in node_output['images']:
+                    if 'filename' in img_info:
+                        # ComfyUI output URL format
+                        comfy_url = f"http://{os.getenv('COMFY_HOST', '127.0.0.1')}:{os.getenv('COMFY_PORT', '8188')}"
+                        output_url = f"{comfy_url}/view?filename={img_info['filename']}&subfolder={img_info.get('subfolder', '')}"
+                        outputs.append(output_url)
+    except Exception as e:
+        print(f"⚠️ Could not extract output URLs: {e}")
+    
+    return outputs
+
+# Serverless Worker starten
+if __name__ == "__main__":
+    print("🏁 Starting ComfyUI Serverless Worker...")
+    runpod.serverless.start({
+        "handler": handler,
+        "refresh_worker": True
+    })
+EOF
+
+# Handler ausführbar machen
+RUN chmod +x /workspace/handler.py
+
+# --- TEIL 7: Environment & Start Configuration ---
+
+# Working directory zurück zu workspace
+WORKDIR /workspace
+
+# Port für ComfyUI API (optional, da serverless)
+EXPOSE 8188
+
+# Healthcheck für Serverless Worker
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD python -c "import requests; requests.get('http://127.0.0.1:8188/system_stats', timeout=5)" || exit 1
+
+# Standardbefehl: Serverless Worker Handler (optimiert basierend auf Kimi's Feedback)
+CMD ["/workspace/handler.py"]
