@@ -58,8 +58,7 @@ Once deployed (2-3 minutes):
 ```
 runpod-comfyui-h200/
 ├── dockerfiles/
-│   ├── Dockerfile              # Main pod image
-│   └── Dockerfile.serverless   # Serverless worker (future)
+│   └── Dockerfile              # Main pod image
 ├── docs/
 │   ├── deployment-guide.md
 │   ├── troubleshooting.md

@@ -34,11 +34,6 @@ while [[ $# -gt 0 ]]; do
             PUSH=true
             shift
             ;;
-        --serverless)
-            DOCKERFILE="dockerfiles/Dockerfile.serverless"
-            TAG="serverless"
-            shift
-            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -46,7 +41,6 @@ while [[ $# -gt 0 ]]; do
             echo "  -t, --tag TAG        Image tag (default: latest)"
             echo "  -n, --name NAME      Image name (default: sebastianhein/comfyui-h200)"
             echo "  --push               Push to registry after build"
-            echo "  --serverless         Build serverless worker variant"
             echo "  -h, --help           Show this help"
             exit 0
             ;;
