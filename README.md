@@ -1,4 +1,4 @@
-# 🚀 RunPod ComfyUI H200
+# 🚀 RunPod ComfyUI Cloud Pod
 
 Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPUs on RunPod cloud platform.
 
