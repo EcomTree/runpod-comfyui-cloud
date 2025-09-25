@@ -2,7 +2,7 @@
 
 Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPUs on RunPod cloud platform.
 
-[![Docker Hub](https://img.shields.io/badge/Docker-Hub-blue?logo=docker)](https://hub.docker.com/r/sebastianhein/comfyui-h200)
+[![Docker Hub](https://img.shields.io/badge/Docker-Hub-blue?logo=docker)](https://hub.docker.com/r/ecomtree/comfyui-cloud)
 [![RunPod](https://img.shields.io/badge/RunPod-Cloud-green?logo=runpod)](https://runpod.io/)
 [![CUDA](https://img.shields.io/badge/CUDA-12.8+-brightgreen?logo=nvidia)](https://developer.nvidia.com/cuda-toolkit)
 
@@ -31,19 +31,19 @@ Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPU
 
 **Option A: Use Pre-built Image**
 ```bash
-docker pull sebastianhein/comfyui-h200:no-auth
+docker pull ecomtree/comfyui-cloud:latest
 ```
 
 **Option B: Build Locally**
 ```bash
 # Build for RunPod (x86_64 architecture required)
-docker buildx build --platform linux/amd64 -f dockerfiles/Dockerfile -t my-comfyui .
+docker buildx build --platform linux/amd64 -f dockerfiles/Dockerfile -t ecomtree/comfyui-cloud .
 ```
 
 ### 2. RunPod Deployment
 
 1. Go to [RunPod Pods](https://console.runpod.io/pods)
-2. Click **Deploy** → Select **sebastianhein-comfyui-h200** template
+2. Click **Deploy** → Select **ecomtree-comfyui-cloud** template
 3. **Important:** Choose RTX 5090 or H200 GPU (CUDA 12.8+ required)
 4. Click **Deploy On-Demand**
 
@@ -86,7 +86,7 @@ runpod-comfyui-h200/
 
 **Manual build:**
 ```bash
-docker buildx build --platform linux/amd64 -f dockerfiles/Dockerfile -t sebastianhein/comfyui-h200:latest .
+docker buildx build --platform linux/amd64 -f dockerfiles/Dockerfile -t ecomtree/comfyui-cloud:latest .
 ```
 
 ### Testing Locally
