@@ -76,7 +76,8 @@ comfyui:
 EOF
 
 # H200-optimiertes Start-Skript erstellen (moderne HEREDOC Syntax)
-RUN <<EOF cat > /workspace/start_comfyui_h200.sh
+# WICHTIG: Skript wird nach /usr/local/bin/ kopiert, damit es auch mit Volume-Mounts auf /workspace funktioniert
+RUN <<EOF cat > /usr/local/bin/start_comfyui_h200.sh
 #!/bin/bash
 set -e
 
@@ -114,7 +115,7 @@ exec python main.py \
 EOF
 
 # Start-Skript ausführbar machen
-RUN chmod +x /workspace/start_comfyui_h200.sh
+RUN chmod +x /usr/local/bin/start_comfyui_h200.sh
 
 # --- TEIL 6: Start & Nutzung ---
 
@@ -123,4 +124,5 @@ EXPOSE 8188
 
 # Standardbefehl, der beim Starten des Containers ausgeführt wird
 # RunPod-optimiert: Falls ComfyUI nicht startet, wenigstens keep-alive
-CMD ["/bin/bash", "-c", "/workspace/start_comfyui_h200.sh || (echo 'ComfyUI failed to start, keeping container alive for debugging...' && tail -f /dev/null)"]
+# Skript wird von /usr/local/bin/ ausgeführt (funktioniert auch mit Volume-Mounts)
+CMD ["/bin/bash", "-c", "/usr/local/bin/start_comfyui_h200.sh || (echo 'ComfyUI failed to start, keeping container alive for debugging...' && tail -f /dev/null)"]

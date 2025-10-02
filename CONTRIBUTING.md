@@ -1,4 +1,4 @@
-# Contributing to RunPod ComfyUI H200
+# Contributing to RunPod ComfyUI Cloud
 
 Thanks for your interest in contributing! This project maintains production-ready ComfyUI Docker images for RunPod.
 

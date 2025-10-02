@@ -1,10 +1,10 @@
 #!/bin/bash
-# Test script for RunPod ComfyUI H200 Image
+# Test script for RunPod ComfyUI Cloud Image
 # Validates image functionality locally
 
 set -e
 
-echo "🧪 Testing RunPod ComfyUI H200 Image"
+echo "🧪 Testing RunPod ComfyUI Cloud Image"
 echo "===================================="
 
 IMAGE_NAME="sebastianhein/comfyui-h200:no-auth"

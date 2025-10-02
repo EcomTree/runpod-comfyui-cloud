@@ -47,7 +47,6 @@ test/
 htmlcov/
 
 # Scripts (not needed in container)
-scripts/
 .github/
 
 # Memory bank

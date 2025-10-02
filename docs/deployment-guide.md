@@ -1,6 +1,6 @@
 # 🚀 RunPod Deployment Guide
 
-Complete guide for deploying ComfyUI H200 on RunPod cloud platform.
+Complete guide for deploying ComfyUI Cloud on RunPod cloud platform.
 
 ## Prerequisites
 

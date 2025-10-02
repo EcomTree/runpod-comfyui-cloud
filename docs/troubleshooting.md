@@ -1,6 +1,6 @@
 # 🔧 Troubleshooting Guide
 
-Common issues and solutions for RunPod ComfyUI H200 deployment.
+Common issues and solutions for RunPod ComfyUI Cloud deployment.
 
 ## Container Issues
 
@@ -33,15 +33,22 @@ exec /bin/bash: exec format error
 ```
 **Solution:** ✅ Build with correct platform:
 ```bash
-docker buildx build --platform linux/amd64 -f dockerfiles/Dockerfile -t image:tag .
+docker buildx build --platform linux/amd64 -f Dockerfile -t image:tag .
 ```
 
-#### 3. Missing Start Script
-**Problem:** Script not found in container
+#### 3. Missing Start Script (Fixed in Current Version)
+**Problem:** Script not found when using Volume Mounts
 ```
 /bin/bash: line 1: /workspace/start_comfyui_h200.sh: No such file or directory
 ```
-**Solutions:**
+**Root Cause:** When mounting a volume to `/workspace`, the script in that directory gets hidden.
+
+**Solution in Current Dockerfile:** ✅ Script is now in `/usr/local/bin/start_comfyui_h200.sh`
+- Works with or without volume mounts
+- Not affected by `/workspace` volume overlays
+- Always accessible via PATH
+
+**Legacy Fix (if using old images):**
 - ✅ Verify HEREDOC syntax in Dockerfile
 - ✅ Check WORKDIR paths are correct
 - ✅ Ensure script permissions with `chmod +x`
@@ -128,7 +135,7 @@ EOF
 **Problem:** Changes not reflected in image
 **Solution:** ✅ Use no-cache build:
 ```bash
-docker buildx build --no-cache --platform linux/amd64 -f dockerfiles/Dockerfile -t image .
+docker buildx build --no-cache --platform linux/amd64 -f Dockerfile -t image .
 ```
 
 ## GPU & Performance Issues
