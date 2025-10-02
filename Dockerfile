@@ -31,16 +31,37 @@ WORKDIR /workspace
 # --- TEIL 3: ComfyUI Installation ---
 
 # ComfyUI klonen und dessen Python-Abhängigkeiten (ohne PyTorch) installieren
-RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
+RUN set -e; \
+    git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git && \
     cd ComfyUI && \
-    git checkout v0.3.57 && \
-    pip install --no-cache-dir $(grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" | tr '\n' ' ') && \
+    if [ ! -f requirements.txt ]; then \
+        echo "❌ requirements.txt not found in ComfyUI repository." >&2; \
+        exit 1; \
+    fi && \
+    grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" > /tmp/comfyui-requirements.txt && \
+    if [ -s /tmp/comfyui-requirements.txt ]; then \
+        pip install --no-cache-dir -r /tmp/comfyui-requirements.txt; \
+    else \
+        echo "ℹ️  No additional ComfyUI Python dependencies detected."; \
+    fi && \
+    rm -f /tmp/comfyui-requirements.txt && \
     pip install --no-cache-dir librosa soundfile av moviepy
 
 # ComfyUI Manager installieren
-RUN cd /workspace/ComfyUI/custom_nodes && \
-    git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
+RUN set -e; \
+    cd /workspace/ComfyUI && \
+    mkdir -p custom_nodes && \
+    cd custom_nodes && \
+    if [ -d ComfyUI-Manager/.git ]; then \
+        echo "ℹ️  ComfyUI-Manager already present, skipping fresh clone."; \
+    else \
+        git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git || { echo "❌ Failed to clone ComfyUI-Manager." >&2; exit 1; }; \
+    fi && \
     cd ComfyUI-Manager && \
+    if [ ! -f requirements.txt ]; then \
+        echo "❌ requirements.txt not found in ComfyUI-Manager." >&2; \
+        exit 1; \
+    fi && \
     pip install --no-cache-dir -r requirements.txt
 
 # --- TEIL 4: H200 Performance-Optimierungen ---
