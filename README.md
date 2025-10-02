@@ -49,7 +49,12 @@ docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-clo
 
 ### 3. Access Services
 
-Once deployed (2-3 minutes):
+Once deployed:
+- **Without Volume:** Ready in ~2-3 minutes
+- **With Volume (first start):** ~5-10 minutes (one-time ComfyUI installation to volume)
+- **With Volume (subsequent starts):** ~30 seconds (ComfyUI already on volume)
+
+**Access:**
 - **ComfyUI:** `http://<pod-ip>:8188`
 - **Jupyter Lab:** `http://<pod-ip>:8888` (no login required)
 
