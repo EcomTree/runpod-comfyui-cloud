@@ -1,10 +1,10 @@
 #!/bin/bash
-# Build script for RunPod ComfyUI H200 Image
+# Build script for RunPod ComfyUI Cloud Image
 # Builds for x86_64 architecture (RunPod compatible)
 
 set -e
 
-echo "🚀 Building RunPod ComfyUI H200 Image..."
+echo "🚀 Building RunPod ComfyUI Cloud Image..."
 echo "========================================"
 
 # Check if Docker Buildx is available
@@ -16,7 +16,7 @@ fi
 # Default values
 IMAGE_NAME="sebastianhein/comfyui-h200"
 TAG="latest"
-DOCKERFILE="dockerfiles/Dockerfile"
+DOCKERFILE="Dockerfile"
 PUSH=false
 
 # Parse command line arguments

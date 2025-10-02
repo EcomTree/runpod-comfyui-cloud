@@ -37,7 +37,7 @@ docker pull ecomtree/comfyui-cloud:latest
 **Option B: Build Locally**
 ```bash
 # Build for RunPod (x86_64 architecture required)
-docker buildx build --platform linux/amd64 -f dockerfiles/Dockerfile -t ecomtree/comfyui-cloud .
+docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-cloud .
 ```
 
 ### 2. RunPod Deployment
@@ -57,8 +57,8 @@ Once deployed (2-3 minutes):
 
 ```
 runpod-comfyui-h200/
-├── dockerfiles/
-│   └── Dockerfile              # Main pod image
+├── Dockerfile                  # Main pod image
+├── start_comfyui_h200.sh      # Startup script (reference)
 ├── docs/
 │   ├── deployment-guide.md
 │   ├── troubleshooting.md
@@ -86,7 +86,7 @@ runpod-comfyui-h200/
 
 **Manual build:**
 ```bash
-docker buildx build --platform linux/amd64 -f dockerfiles/Dockerfile -t ecomtree/comfyui-cloud:latest .
+docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-cloud:latest .
 ```
 
 ### Testing Locally

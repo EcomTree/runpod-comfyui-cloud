@@ -1,6 +1,6 @@
 # 🎮 GPU Compatibility Guide
 
-Hardware compatibility matrix for RunPod ComfyUI H200 deployment.
+Hardware compatibility matrix for RunPod ComfyUI Cloud deployment.
 
 ## Supported Hardware
 

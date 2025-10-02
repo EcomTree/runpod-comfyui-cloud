@@ -1,10 +1,10 @@
 #!/bin/bash
-# RunPod deployment script for ComfyUI H200 Image
+# RunPod deployment script for ComfyUI Cloud Image
 # Creates and manages RunPod pods with optimal configuration
 
 set -e
 
-echo "🚀 RunPod ComfyUI H200 Deployment Script"
+echo "🚀 RunPod ComfyUI Cloud Deployment Script"
 echo "========================================"
 
 # Default configuration
