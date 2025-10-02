@@ -42,7 +42,11 @@ cd /workspace/ComfyUI
 
 # Python-basierte Performance-Optimierungen laden
 echo "Loading H200 optimizations..."
-python3 h200_optimizations.py
+if [ -f h200_optimizations.py ]; then
+    python3 h200_optimizations.py
+else
+    echo "⚠️  Warning: h200_optimizations.py not found, skipping H200 optimizations."
+fi
 
 echo "⚡ Starting ComfyUI with H200 launch flags..."
 
