@@ -72,7 +72,6 @@ WORKDIR /workspace/ComfyUI
 # H200 Optimierungs-Skript erstellen (moderne HEREDOC Syntax)
 RUN <<EOF cat > h200_optimizations.py
 import torch
-import os
 
 print("🚀 Applying H200 optimizations...")
 
@@ -112,26 +111,57 @@ if [ ! -d "/workspace/ComfyUI" ]; then
     
     cd /workspace
     
-    # ComfyUI klonen
-    git clone https://github.com/comfyanonymous/ComfyUI.git
+    # ComfyUI klonen (shallow clone at tag v0.3.57)
+    git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git || {
+        echo "❌ Failed to clone ComfyUI repository." >&2
+        exit 1
+    }
     cd ComfyUI
-    git checkout v0.3.57
+    
+    # Check if requirements.txt exists
+    if [ ! -f requirements.txt ]; then
+        echo "❌ requirements.txt not found in ComfyUI repository." >&2
+        exit 1
+    fi
     
     # Python-Abhängigkeiten installieren (ohne PyTorch, da bereits installiert)
-    pip install --no-cache-dir \$(grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" | tr '\n' ' ')
+    grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" > /tmp/filtered_requirements.txt
+    if [ -s /tmp/filtered_requirements.txt ]; then
+        pip install --no-cache-dir -r /tmp/filtered_requirements.txt
+    else
+        echo "ℹ️  No additional ComfyUI Python dependencies detected."
+    fi
+    rm -f /tmp/filtered_requirements.txt
     pip install --no-cache-dir librosa soundfile av moviepy
     
     # ComfyUI Manager installieren
+    mkdir -p custom_nodes
     cd custom_nodes
-    git clone https://github.com/ltdrdata/ComfyUI-Manager.git
+    git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git || {
+        echo "❌ Failed to clone ComfyUI-Manager repository." >&2
+        exit 1
+    }
+    
+    # Check if ComfyUI-Manager directory exists
+    if [ ! -d "ComfyUI-Manager" ]; then
+        echo "❌ ComfyUI-Manager directory not found after clone!" >&2
+        exit 1
+    fi
+    
     cd ComfyUI-Manager
+    
+    # Check if requirements.txt exists
+    if [ ! -f requirements.txt ]; then
+        echo "❌ requirements.txt not found in ComfyUI-Manager!" >&2
+        exit 1
+    fi
+    
     pip install --no-cache-dir -r requirements.txt
     cd /workspace/ComfyUI
     
     # H200 Optimierungen erstellen
     cat > h200_optimizations.py << 'PYEOF'
 import torch
-import os
 
 print("🚀 Applying H200 optimizations...")
 

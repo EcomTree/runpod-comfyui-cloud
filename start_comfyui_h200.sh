@@ -36,7 +36,12 @@ ensure_comfyui_exists() {
         exit 1
     fi
 
-    grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" > /tmp/comfyui-requirements.txt || true
+    grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" > /tmp/comfyui-requirements.txt
+    status=$?
+    if [ $status -ne 0 ] && [ $status -ne 1 ]; then
+        log "❌" "Error filtering requirements.txt (grep failed with exit code $status)."
+        exit 1
+    fi
 
     if [ -s /tmp/comfyui-requirements.txt ]; then
         pip install --no-cache-dir -r /tmp/comfyui-requirements.txt
