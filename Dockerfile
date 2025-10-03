@@ -31,16 +31,37 @@ WORKDIR /workspace
 # --- TEIL 3: ComfyUI Installation ---
 
 # ComfyUI klonen und dessen Python-Abhängigkeiten (ohne PyTorch) installieren
-RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
+RUN set -e; \
+    git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git && \
     cd ComfyUI && \
-    git checkout v0.3.57 && \
-    pip install --no-cache-dir $(grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" | tr '\n' ' ') && \
+    if [ ! -f requirements.txt ]; then \
+        echo "❌ requirements.txt not found in ComfyUI repository." >&2; \
+        exit 1; \
+    fi && \
+    grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" > /tmp/comfyui-requirements.txt && \
+    if [ -s /tmp/comfyui-requirements.txt ]; then \
+        pip install --no-cache-dir -r /tmp/comfyui-requirements.txt; \
+    else \
+        echo "ℹ️  No additional ComfyUI Python dependencies detected."; \
+    fi && \
+    rm -f /tmp/comfyui-requirements.txt && \
     pip install --no-cache-dir librosa soundfile av moviepy
 
 # ComfyUI Manager installieren
-RUN cd /workspace/ComfyUI/custom_nodes && \
-    git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
+RUN set -e; \
+    cd /workspace/ComfyUI && \
+    mkdir -p custom_nodes && \
+    cd custom_nodes && \
+    if [ -d ComfyUI-Manager/.git ]; then \
+        echo "ℹ️  ComfyUI-Manager already present, skipping fresh clone."; \
+    else \
+        git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git || { echo "❌ Failed to clone ComfyUI-Manager." >&2; exit 1; }; \
+    fi && \
     cd ComfyUI-Manager && \
+    if [ ! -f requirements.txt ]; then \
+        echo "❌ requirements.txt not found in ComfyUI-Manager." >&2; \
+        exit 1; \
+    fi && \
     pip install --no-cache-dir -r requirements.txt
 
 # --- TEIL 4: H200 Performance-Optimierungen ---
@@ -51,7 +72,6 @@ WORKDIR /workspace/ComfyUI
 # H200 Optimierungs-Skript erstellen (moderne HEREDOC Syntax)
 RUN <<EOF cat > h200_optimizations.py
 import torch
-import os
 
 print("🚀 Applying H200 optimizations...")
 
@@ -83,6 +103,92 @@ set -e
 
 echo "🚀 Starting ComfyUI + Jupyter Lab for H200 (Docker Version)"
 echo "=================================================="
+
+# Check if ComfyUI exists (wichtig für Volume-Mounts)
+if [ ! -d "/workspace/ComfyUI" ]; then
+    echo "⚠️  ComfyUI not found in /workspace (Volume Mount detected)"
+    echo "📦 Installing ComfyUI to persistent volume..."
+    
+    cd /workspace
+    
+    # ComfyUI klonen (shallow clone at tag v0.3.57)
+    git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git || {
+        echo "❌ Failed to clone ComfyUI repository." >&2
+        exit 1
+    }
+    cd ComfyUI
+    
+    # Check if requirements.txt exists
+    if [ ! -f requirements.txt ]; then
+        echo "❌ requirements.txt not found in ComfyUI repository." >&2
+        exit 1
+    fi
+    
+    # Python-Abhängigkeiten installieren (ohne PyTorch, da bereits installiert)
+    grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" > /tmp/filtered_requirements.txt
+    if [ -s /tmp/filtered_requirements.txt ]; then
+        pip install --no-cache-dir -r /tmp/filtered_requirements.txt
+    else
+        echo "ℹ️  No additional ComfyUI Python dependencies detected."
+    fi
+    rm -f /tmp/filtered_requirements.txt
+    pip install --no-cache-dir librosa soundfile av moviepy
+    
+    # ComfyUI Manager installieren
+    mkdir -p custom_nodes
+    cd custom_nodes
+    git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git || {
+        echo "❌ Failed to clone ComfyUI-Manager repository." >&2
+        exit 1
+    }
+    
+    # Check if ComfyUI-Manager directory exists
+    if [ ! -d "ComfyUI-Manager" ]; then
+        echo "❌ ComfyUI-Manager directory not found after clone!" >&2
+        exit 1
+    fi
+    
+    cd ComfyUI-Manager
+    
+    # Check if requirements.txt exists
+    if [ ! -f requirements.txt ]; then
+        echo "❌ requirements.txt not found in ComfyUI-Manager!" >&2
+        exit 1
+    fi
+    
+    pip install --no-cache-dir -r requirements.txt
+    cd /workspace/ComfyUI
+    
+    # H200 Optimierungen erstellen
+    cat > h200_optimizations.py << 'PYEOF'
+import torch
+
+print("🚀 Applying H200 optimizations...")
+
+# H200 Memory & Performance Backend-Optimierungen
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.deterministic = False
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
+print("✅ H200 optimizations applied!")
+PYEOF
+    
+    # Extra Model Paths erstellen
+    cat > extra_model_paths.yaml << 'YAMLEOF'
+comfyui:
+    checkpoints: models/checkpoints/
+    diffusion_models: models/diffusion_models/
+    vae: models/vae/
+    loras: models/loras/
+    text_encoders: models/text_encoders/
+    audio_encoders: models/audio_encoders/
+YAMLEOF
+    
+    echo "✅ ComfyUI installation completed!"
+else
+    echo "✅ ComfyUI found in /workspace"
+fi
 
 # Jupyter Lab im Hintergrund starten (Port 8888) - ohne Token Auth
 echo "📊 Starting Jupyter Lab on port 8888..."

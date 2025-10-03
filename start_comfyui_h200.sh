@@ -1,56 +1,132 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "🚀 Starting ComfyUI + Jupyter Lab for H200 (Docker Version)"
+log() {
+    local level="$1"
+    shift
+    echo "${level} $*"
+}
+
+trap 'log "❌" "Installation failed at line ${LINENO}. Check the logs above."; exit 1' ERR
+
+log "🚀" "Starting ComfyUI + Jupyter Lab for H200 (Docker Version)"
 echo "=================================================="
 
-# Jupyter Lab im Hintergrund starten (Port 8888) - Authentifizierung per ENV
-echo "📊 Starting Jupyter Lab on port 8888..."
-cd /workspace
+ensure_comfyui_exists() {
+    if [ -d "/workspace/ComfyUI/.git" ]; then
+        log "✅" "ComfyUI found in /workspace"
+        return
+    fi
 
-# Authentifizierung konfigurieren
-JUPYTER_CMD="jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root --notebook-dir=/workspace"
+    log "⚠️" "ComfyUI not found in /workspace (Volume Mount detected)"
+    log "📦" "Installing ComfyUI to persistent volume..."
 
-if [[ -n "$JUPYTER_TOKEN" ]]; then
-    JUPYTER_CMD="$JUPYTER_CMD --NotebookApp.token='$JUPYTER_TOKEN'"
-fi
-if [[ -n "$JUPYTER_PASSWORD" ]]; then
-    JUPYTER_CMD="$JUPYTER_CMD --NotebookApp.password='$JUPYTER_PASSWORD'"
-fi
+    cd /workspace
 
-if [[ -z "$JUPYTER_TOKEN" && -z "$JUPYTER_PASSWORD" ]]; then
-    if [[ "$ALLOW_NO_AUTH" == "true" ]]; then
-        echo "⚠️  WARNING: Starting Jupyter Lab WITHOUT authentication! (Not recommended for production)"
-        JUPYTER_CMD="$JUPYTER_CMD --NotebookApp.token='' --NotebookApp.password=''"
-    else
-        echo "❌ ERROR: No Jupyter authentication configured. Set JUPYTER_TOKEN and/or JUPYTER_PASSWORD environment variables."
-        echo "      To explicitly allow no authentication (NOT RECOMMENDED), set ALLOW_NO_AUTH=true."
+    if [ -d ComfyUI ] && [ ! -d ComfyUI/.git ]; then
+        log "ℹ️" "Removing leftover /workspace/ComfyUI directory without git metadata."
+        rm -rf ComfyUI
+    fi
+
+    git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git
+    cd ComfyUI
+
+    if [ ! -f requirements.txt ]; then
+        log "❌" "requirements.txt missing in ComfyUI repo; aborting."
         exit 1
     fi
-else
-    echo "🔒 Jupyter Lab will require authentication (token/password)."
-fi
 
-nohup $JUPYTER_CMD > /workspace/jupyter.log 2>&1 &
-echo "✅ Jupyter Lab started in background (see /workspace/jupyter.log for details)"
+    grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" > /tmp/comfyui-requirements.txt
+    status=$?
+    if [ $status -ne 0 ] && [ $status -ne 1 ]; then
+        log "❌" "Error filtering requirements.txt (grep failed with exit code $status)."
+        exit 1
+    fi
 
-# H200 Environment optimieren
+    if [ -s /tmp/comfyui-requirements.txt ]; then
+        pip install --no-cache-dir -r /tmp/comfyui-requirements.txt
+    else
+        log "ℹ️" "No additional ComfyUI Python dependencies detected."
+    fi
+    rm -f /tmp/comfyui-requirements.txt
+
+    pip install --no-cache-dir librosa soundfile av moviepy
+
+    install_comfyui_manager
+    generate_files
+
+    log "✅" "ComfyUI installation completed!"
+}
+
+install_comfyui_manager() {
+    cd /workspace/ComfyUI
+    mkdir -p custom_nodes
+    cd custom_nodes
+
+    if [ -d ComfyUI-Manager/.git ]; then
+        log "ℹ️" "ComfyUI-Manager already present. Pulling latest changes."
+        git -C ComfyUI-Manager fetch --depth 1 origin || log "⚠️" "Failed to fetch updates for ComfyUI-Manager."
+        git -C ComfyUI-Manager reset --hard origin/main || log "⚠️" "Failed to reset ComfyUI-Manager to origin/main."
+    else
+        git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git
+    fi
+
+    cd ComfyUI-Manager
+
+    if [ ! -f requirements.txt ]; then
+        log "❌" "requirements.txt missing in ComfyUI-Manager; aborting."
+        exit 1
+    fi
+
+    pip install --no-cache-dir -r requirements.txt
+}
+
+generate_files() {
+    cd /workspace/ComfyUI
+
+    cat > h200_optimizations.py <<'PYEOF'
+import torch
+
+print("🚀 Applying H200 optimizations...")
+
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.deterministic = False
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
+print("✅ H200 optimizations applied!")
+PYEOF
+
+    cat > extra_model_paths.yaml <<'YAMLEOF'
+comfyui:
+    checkpoints: models/checkpoints/
+    diffusion_models: models/diffusion_models/
+    vae: models/vae/
+    loras: models/loras/
+    text_encoders: models/text_encoders/
+    audio_encoders: models/audio_encoders/
+YAMLEOF
+}
+
+ensure_comfyui_exists
+
+log "📊" "Starting Jupyter Lab on port 8888..."
+cd /workspace
+nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
+    --NotebookApp.token='' --NotebookApp.password='' \
+    --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
+log "✅" "Jupyter Lab started in background (no auth required)"
+
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:1024,expandable_segments:True
 export TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
 
 cd /workspace/ComfyUI
 
-# Python-basierte Performance-Optimierungen laden
-echo "Loading H200 optimizations..."
-if [ -f h200_optimizations.py ]; then
-    python3 h200_optimizations.py
-else
-    echo "⚠️  Warning: h200_optimizations.py not found, skipping H200 optimizations."
-fi
+log "Loading" "H200 optimizations..."
+python3 h200_optimizations.py
 
-echo "⚡ Starting ComfyUI with H200 launch flags..."
+log "⚡" "Starting ComfyUI with H200 launch flags..."
 
-# Startparameter (ComfyUI als Hauptprozess)
 exec python main.py \
     --listen 0.0.0.0 \
     --port 8188 \
