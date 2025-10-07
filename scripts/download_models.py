@@ -96,7 +96,9 @@ class ComfyUIModelDownloader:
 
     def determine_target_directory(self, url):
         """Determines the target directory based on URL and filename."""
-        filename = Path(urlparse(url).path).name.lower()
+        parsed_url = urlparse(url)
+        filename = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
+        filename = filename.lower()
 
         # Use global classification mapping
         for directory, patterns in MODEL_CLASSIFICATION_MAPPING:
@@ -123,7 +125,8 @@ class ComfyUIModelDownloader:
             try:
                 # Clean filename from URL (remove query parameters)
                 clean_url = url.split('?')[0]
-                filename = Path(urlparse(clean_url).path).name
+                parsed_url = urlparse(clean_url)
+                filename = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
                 print(f"⬇️  Downloading: {filename} (Attempt {attempt + 1}/{retry_count})")
 
                 # Stream download for large files
@@ -188,7 +191,8 @@ class ComfyUIModelDownloader:
         def download_single_model(url):
             # Extract clean filename from URL
             clean_url = url.split('?')[0]
-            filename = Path(urlparse(clean_url).path).name
+            parsed_url = urlparse(clean_url)
+            filename = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
             
             target_dir = self.determine_target_directory(url)
             target_path = self.models_dir / target_dir / filename
@@ -212,7 +216,8 @@ class ComfyUIModelDownloader:
         for i, url in enumerate(valid_links, 1):
             # Extract filename from URL properly (handle query parameters)
             clean_url = url.split('?')[0]
-            filename = Path(urlparse(clean_url).path).name
+            parsed_url = urlparse(clean_url)
+            filename = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
             print(f"\n📦 [{i}/{len(valid_links)}] Processing: {filename}")
 
             if download_single_model(url):

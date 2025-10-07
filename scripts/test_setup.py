@@ -186,7 +186,7 @@ except Exception as e:
                     from urllib.parse import urlparse
                     output = json.loads(result.stdout)
                     for entry in output.get('results', []):
-                        # Extract filename from URL using urlparse
+                        # Extract filename from URL using urlparse - avoiding Path() on URLs
                         parsed_url = urlparse(entry['url'])
                         url_name = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
                         if entry['result'] == entry['expected']:
@@ -202,7 +202,7 @@ except Exception as e:
                     from urllib.parse import urlparse
                     output = json.loads(result.stdout)
                     for entry in output.get('results', []):
-                        # Extract filename from URL using urlparse
+                        # Extract filename from URL using urlparse - avoiding Path() on URLs
                         parsed_url = urlparse(entry['url'])
                         url_name = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
                         print(f"✅ {url_name} -> {entry['result']}")

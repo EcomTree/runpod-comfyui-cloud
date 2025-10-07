@@ -91,27 +91,26 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     cd /workspace
 
     # Run model download in background with logging
-    # Pass HF_TOKEN to the background subshell explicitly by exporting it in the subshell
-    nohup bash -c "
+    # Explicitly pass HF_TOKEN to the background subshell using env
+    # This ensures the token is available regardless of shell quoting issues
+    env HF_TOKEN="${HF_TOKEN}" nohup bash -c '
         set -e
-        # Export HF_TOKEN in the subshell - use double quotes to allow variable expansion
-        export HF_TOKEN=\"${HF_TOKEN}\"
         
         # Activate virtual environment
         source model_dl_venv/bin/activate
 
         # Verify links (if not already done)
-        if [ ! -f 'link_verification_results.json' ]; then
-            echo '🔍 Checking link accessibility...'
+        if [ ! -f "link_verification_results.json" ]; then
+            echo "🔍 Checking link accessibility..."
             python3 /workspace/scripts/verify_links.py
         fi
 
         # Download models
-        echo '⬇️  Starting model download...'
+        echo "⬇️  Starting model download..."
         python3 /workspace/scripts/download_models.py /workspace
 
-        echo '✅ Model download finished!'
-    " > /workspace/model_download.log 2>&1 &
+        echo "✅ Model download finished!"
+    ' > /workspace/model_download.log 2>&1 &
     
     echo "✅ Model download started in background (PID: $!)"
 else
