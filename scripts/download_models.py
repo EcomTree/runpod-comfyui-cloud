@@ -18,7 +18,23 @@ import subprocess
 PROGRESS_REPORT_INTERVAL_MB = 10  # Report progress every 10 MB
 RETRY_BASE_DELAY_SECONDS = 5  # Base delay for exponential backoff
 MIB_TO_BYTES = 1024 * 1024  # Bytes in one mebibyte (binary megabyte)
-MIN_VALID_FILE_SIZE_MB = 10  # Minimum file size in MB to consider a download complete
+MIN_VALID_FILE_SIZE_KB = 100  # Minimum file size in KB to consider a download complete (100KB)
+
+# Model classification mapping: ordered from most specific to most general
+MODEL_CLASSIFICATION_MAPPING = [
+    ('unet', ['flux', 'sd3', 'auraflow', 'hunyuan', 'kolors', 'lumina']),
+    ('vae', ['vae', 'kl-f8-anime']),
+    ('clip_vision', ['clip_vision', 'image_encoder']),
+    ('clip', ['clip', 'open_clip']),
+    ('t5', ['t5', 'umt5']),
+    ('controlnet', ['controlnet', 'control_', 'canny', 'depth', 'openpose', 'scribble']),
+    ('loras', ['lora', '.lora']),
+    ('upscale_models', ['esrgan', 'realesrgan', 'swinir', '4x', '2x', 'upscale']),
+    ('animatediff_models', ['animatediff', 'mm_', 'motion']),
+    ('ipadapter', ['ip-adapter', 'ip_adapter']),
+    ('text_encoders', ['text_encoder', 'encoder']),
+    ('checkpoints', ['.ckpt', '.safetensors']),
+]
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 
@@ -81,23 +97,8 @@ class ComfyUIModelDownloader:
         """Determines the target directory based on URL and filename."""
         filename = Path(urlparse(url).path).name.lower()
 
-        # Ordered mapping of patterns to directories (more specific entries first)
-        mapping = [
-            ('unet', ['flux', 'sd3', 'auraflow', 'hunyuan', 'kolors', 'lumina']),
-            ('vae', ['vae', 'kl-f8-anime']),
-            ('clip_vision', ['clip_vision', 'image_encoder']),
-            ('clip', ['clip', 'open_clip']),
-            ('t5', ['t5', 'umt5']),
-            ('controlnet', ['controlnet', 'control_', 'canny', 'depth', 'openpose', 'scribble']),
-            ('loras', ['lora', '.lora']),
-            ('upscale_models', ['esrgan', 'realesrgan', 'swinir', '4x', '2x', 'upscale']),
-            ('animatediff_models', ['animatediff', 'mm_', 'motion']),
-            ('ipadapter', ['ip-adapter', 'ip_adapter']),
-            ('text_encoders', ['text_encoder', 'encoder']),
-            ('checkpoints', ['.ckpt', '.safetensors']),
-        ]
-
-        for directory, patterns in mapping:
+        # Use global classification mapping
+        for directory, patterns in MODEL_CLASSIFICATION_MAPPING:
             # Check if filename contains patterns or has specific extensions
             for pattern in patterns:
                 if pattern.startswith('.'):
@@ -194,14 +195,14 @@ class ComfyUIModelDownloader:
             # Check if file exists and has reasonable size (not just a partial download)
             if target_path.exists():
                 file_size = target_path.stat().st_size
-                # Use threshold - AI models are typically gigabytes in size
-                # Files smaller than this are likely incomplete/corrupted downloads
-                min_valid_size = MIN_VALID_FILE_SIZE_MB * MIB_TO_BYTES
+                # Use conservative threshold (100KB) - catches obvious failures
+                # but allows small models like LoRAs (which can be <10MB)
+                min_valid_size = MIN_VALID_FILE_SIZE_KB * 1024
                 if file_size > min_valid_size:
                     print(f"⏭️  Skipping (already exists): {target_path.name} ({file_size / MIB_TO_BYTES:.1f} MB)")
                     return True
                 else:
-                    print(f"⚠️  Incomplete file detected ({file_size} bytes), re-downloading: {target_path.name}")
+                    print(f"⚠️  Incomplete file detected ({file_size / 1024:.1f} KB), re-downloading: {target_path.name}")
                     target_path.unlink()  # Delete incomplete file
 
             return self.download_file(url, target_path)

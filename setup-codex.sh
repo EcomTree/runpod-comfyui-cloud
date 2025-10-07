@@ -479,17 +479,26 @@ fi
 # ============================================================
 # 11. Final Summary
 # ============================================================
+# Cache version results to avoid repeated execution
+PYTHON_VERSION="$($PYTHON_CMD --version 2>&1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'N/A')"
+PIP_VERSION="$($PYTHON_CMD -m pip --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'N/A')"
+DOCKER_VERSION="$(docker --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'not available')"
+NODE_VERSION="$(node --version 2>/dev/null || echo 'not detected')"
+JQ_VERSION="$(jq --version 2>/dev/null || echo 'not available')"
+CURL_VERSION="$(curl --version 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'not available')"
+GIT_VERSION="$(git --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'not available')"
+
 echo ""
 echo_success "✨ Setup completed successfully!"
 echo ""
 echo_info "📋 Environment Summary:"
-echo "   ├─ Python: $($PYTHON_CMD --version 2>&1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'N/A')"
-echo "   ├─ pip: $($PYTHON_CMD -m pip --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'N/A')"
-echo "   ├─ Docker: $(docker --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'not available')"
-echo "   ├─ Node.js: $(node --version 2>/dev/null || echo 'not detected')"
-echo "   ├─ jq: $(jq --version 2>/dev/null || echo 'not available')"
-echo "   ├─ curl: $(curl --version 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'not available')"
-echo "   └─ git: $(git --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || echo 'not available')"
+echo "   ├─ Python: $PYTHON_VERSION"
+echo "   ├─ pip: $PIP_VERSION"
+echo "   ├─ Docker: $DOCKER_VERSION"
+echo "   ├─ Node.js: $NODE_VERSION"
+echo "   ├─ jq: $JQ_VERSION"
+echo "   ├─ curl: $CURL_VERSION"
+echo "   └─ git: $GIT_VERSION"
 echo ""
 echo_info "📁 Paths:"
 echo "   ├─ Workspace: $(pwd)"

@@ -14,14 +14,30 @@ from urllib.parse import urlparse
 from pathlib import Path
 import time
 
-HF_TOKEN = os.getenv("HF_TOKEN")
-
-# Validate HF_TOKEN format if provided
-if HF_TOKEN:
-    HF_TOKEN = HF_TOKEN.strip()
-    if not HF_TOKEN.startswith('hf_') or len(HF_TOKEN) < 10:
+def validate_hf_token():
+    """Validates and returns HF_TOKEN, or None if invalid."""
+    token = os.getenv("HF_TOKEN")
+    
+    if not token:
+        return None
+    
+    token = token.strip()
+    
+    # Check if token becomes empty after stripping
+    if not token:
+        print("⚠️  Warning: HF_TOKEN is empty or contains only whitespace.")
+        print("⚠️  Protected Hugging Face links may fail.")
+        return None
+    
+    # Validate token format
+    if not token.startswith('hf_') or len(token) < 10:
         print("⚠️  Warning: HF_TOKEN format appears invalid. Valid tokens start with 'hf_' and have sufficient length.")
         print("⚠️  Protected Hugging Face links may fail.")
+        return None
+    
+    return token
+
+HF_TOKEN = validate_hf_token()
 
 SESSION = requests.Session()
 SESSION.headers.update({
@@ -31,7 +47,7 @@ SESSION.headers.update({
 if HF_TOKEN:
     SESSION.headers['Authorization'] = f'Bearer {HF_TOKEN}'
 else:
-    print("⚠️  No HF_TOKEN set. Protected Hugging Face links may fail.")
+    print("ℹ️  No HF_TOKEN set. Protected Hugging Face links may fail.")
 
 def extract_huggingface_links(content):
     """Extracts all Hugging Face links from the markdown content."""
@@ -178,6 +194,30 @@ def print_report(stats, valid_links, invalid_links):
     for link in valid_links[:5]:
         print(f"• {link}")
 
+def get_max_workers():
+    """Parse and validate MAX_WORKERS environment variable."""
+    max_workers_env = os.getenv("MAX_WORKERS")
+    default_workers = 5
+    max_allowed_workers = 32
+    
+    try:
+        if max_workers_env is None:
+            return default_workers
+        
+        workers = int(max_workers_env)
+        
+        if workers < 1:
+            print(f"⚠️  MAX_WORKERS must be >= 1, got {workers}. Defaulting to {default_workers}.")
+            return default_workers
+        elif workers > max_allowed_workers:
+            print(f"⚠️  MAX_WORKERS must be <= {max_allowed_workers}, got {workers}. Limiting to {max_allowed_workers}.")
+            return max_allowed_workers
+        
+        return workers
+    except ValueError:
+        print(f"⚠️  Invalid MAX_WORKERS value: {max_workers_env}. Defaulting to {default_workers}.")
+        return default_workers
+
 def main():
     """Main function."""
     # Find the markdown file relative to the script location
@@ -207,34 +247,9 @@ def main():
     print(f"📎 Found: {len(links)} links")
     print(f"🔍 Checking accessibility...")
 
-    # Verify links (with rate limiting)
-    # Allow max_workers to be configured via environment variable
-    def get_max_workers():
-        """Parse and validate MAX_WORKERS environment variable."""
-        max_workers_env = os.getenv("MAX_WORKERS")
-        default_workers = 5
-        max_allowed_workers = 32
-        
-        try:
-            if max_workers_env is None:
-                return default_workers
-            
-            workers = int(max_workers_env)
-            
-            if workers < 1:
-                print(f"⚠️  MAX_WORKERS must be >= 1, got {workers}. Defaulting to {default_workers}.")
-                return default_workers
-            elif workers > max_allowed_workers:
-                print(f"⚠️  MAX_WORKERS must be <= {max_allowed_workers}, got {workers}. Limiting to {max_allowed_workers}.")
-                return max_allowed_workers
-            
-            return workers
-        except ValueError:
-            print(f"⚠️  Invalid MAX_WORKERS value: {max_workers_env}. Defaulting to {default_workers}.")
-            return default_workers
-    
+    # Verify links with configurable max_workers
     max_workers = get_max_workers()
-    results = verify_links_parallel(links, max_workers=max_workers)  # Fewer workers for polite requests
+    results = verify_links_parallel(links, max_workers=max_workers)
 
     # Analyze results
     stats, valid_links, invalid_links = analyze_results(results)
