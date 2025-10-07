@@ -14,7 +14,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # System-Abhängigkeiten installieren
 RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y git wget curl unzip && \
+    apt-get install -y git wget curl unzip python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -63,6 +63,53 @@ RUN set -e; \
         exit 1; \
     fi && \
     pip install --no-cache-dir -r requirements.txt
+
+# --- TEIL 3.5: Model Download Scripts ---
+
+# Kopiere Model-Dokumentation und Scripts ins Image
+COPY comfyui_models_complete_library.md scripts/verify_links.py scripts/download_models.py /workspace/
+
+# Erstelle virtuelle Umgebung für Download-Scripts
+RUN cd /workspace && \
+    python3 -m venv model_dl_venv && \
+    /workspace/model_dl_venv/bin/pip install --no-cache-dir requests
+
+# Model Download Script erstellen (läuft nur wenn DOWNLOAD_MODELS=true)
+RUN <<EOF cat > /usr/local/bin/download_comfyui_models.sh
+#!/bin/bash
+set -e
+
+DOWNLOAD_MODELS=\${DOWNLOAD_MODELS:-false}
+HF_TOKEN=\${HF_TOKEN:-}
+
+if [ "\$DOWNLOAD_MODELS" = "true" ]; then
+    echo "🚀 Starte automatisches Download der ComfyUI Modelle..."
+    echo "📁 Dies kann sehr lange dauern und viel Speicherplatz benötigen!"
+    echo "💾 Stelle sicher, dass genügend Volume-Speicher verfügbar ist."
+
+    cd /workspace
+
+    # Aktiviere virtuelle Umgebung
+    source model_dl_venv/bin/activate
+
+    # Überprüfe Links (falls noch nicht geschehen)
+    if [ ! -f "link_verification_results.json" ]; then
+        echo "🔍 Überprüfe Links auf Erreichbarkeit..."
+        HF_TOKEN="\$HF_TOKEN" python3 scripts/verify_links.py
+    fi
+
+    # Lade Modelle herunter
+    echo "⬇️  Starte Model-Download..."
+    HF_TOKEN="\$HF_TOKEN" python3 scripts/download_models.py /workspace
+
+    echo "✅ Model-Download abgeschlossen!"
+else
+    echo "ℹ️  Model-Download übersprungen (DOWNLOAD_MODELS != true)"
+fi
+EOF
+
+# Script ausführbar machen
+RUN chmod +x /usr/local/bin/download_comfyui_models.sh
 
 # --- TEIL 4: H200 Performance-Optimierungen ---
 
@@ -201,6 +248,10 @@ echo "✅ Jupyter Lab started in background (no auth required)"
 # H200 Environment optimieren
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:1024,expandable_segments:True
 export TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
+
+# Modelle herunterladen (falls gewünscht)
+echo "🔍 Prüfe Model-Download-Status..."
+/usr/local/bin/download_comfyui_models.sh
 
 cd /workspace/ComfyUI
 
