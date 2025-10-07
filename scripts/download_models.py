@@ -33,7 +33,7 @@ MODEL_CLASSIFICATION_MAPPING = [
     ('upscale_models', ['esrgan', 'realesrgan', 'swinir', '4x', '2x', 'upscale']),
     ('animatediff_models', ['animatediff', 'mm_', 'motion']),
     ('ipadapter', ['ip-adapter', 'ip_adapter']),
-    ('text_encoders', ['text_encoder', 'encoder']),
+    ('text_encoders', ['text_encoder']),
     ('checkpoints', ['.ckpt', '.safetensors']),
 ]
 
