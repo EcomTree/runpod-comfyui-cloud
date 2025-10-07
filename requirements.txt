@@ -1,0 +1,10 @@
+# Development Dependencies for RunPod ComfyUI Cloud Pod
+# These are only needed for development tools, NOT for the Docker image itself
+
+# Link verification and download scripts
+requests>=2.31.0
+
+# Optional: For advanced model download features
+# urllib3>=2.0.0
+# tqdm>=4.66.0
+
