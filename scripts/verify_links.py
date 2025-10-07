@@ -261,17 +261,24 @@ def main():
     # Try to save to script directory first, fallback to /workspace if not writable
     output_file = script_dir.parent / 'link_verification_results.json'
     
-    # Check if directory exists and is writable
+    # Check if directory exists and is writable with improved error handling
     try:
-        # Ensure parent directory exists
-        if not output_file.parent.exists():
-            print(f"⚠️  Parent directory {output_file.parent} does not exist. Using /workspace instead.")
+        parent_dir = output_file.parent
+        # First check if parent directory exists
+        if not parent_dir.exists():
+            print(f"⚠️  Parent directory {parent_dir} does not exist. Using /workspace instead.")
             output_file = Path('/workspace/link_verification_results.json')
-        elif not os.access(output_file.parent, os.W_OK):
-            print(f"⚠️  Parent directory {output_file.parent} is not writable. Using /workspace instead.")
-            output_file = Path('/workspace/link_verification_results.json')
-    except (OSError, PermissionError) as e:
-        print(f"⚠️  Filesystem error checking {output_file.parent}: {e}. Using /workspace instead.")
+        else:
+            # Only check writability if directory exists
+            try:
+                if not os.access(parent_dir, os.W_OK):
+                    print(f"⚠️  Parent directory {parent_dir} is not writable. Using /workspace instead.")
+                    output_file = Path('/workspace/link_verification_results.json')
+            except (OSError, PermissionError) as e:
+                print(f"⚠️  Cannot check write permissions for {parent_dir}: {e}. Using /workspace instead.")
+                output_file = Path('/workspace/link_verification_results.json')
+    except Exception as e:
+        print(f"⚠️  Unexpected error checking output path: {e}. Using /workspace instead.")
         output_file = Path('/workspace/link_verification_results.json')
     
     try:

@@ -91,11 +91,11 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     cd /workspace
 
     # Run model download in background with logging
-    # Pass HF_TOKEN to the background subshell explicitly
+    # Pass HF_TOKEN to the background subshell explicitly by exporting it in the subshell
     nohup bash -c "
         set -e
-        # Export HF_TOKEN in the subshell
-        export HF_TOKEN='${HF_TOKEN}'
+        # Export HF_TOKEN in the subshell - use double quotes to allow variable expansion
+        export HF_TOKEN=\"${HF_TOKEN}\"
         
         # Activate virtual environment
         source model_dl_venv/bin/activate
