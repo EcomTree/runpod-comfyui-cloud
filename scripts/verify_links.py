@@ -209,18 +209,31 @@ def main():
 
     # Verify links (with rate limiting)
     # Allow max_workers to be configured via environment variable
-    max_workers_env = os.getenv("MAX_WORKERS")
-    try:
-        max_workers = int(max_workers_env) if max_workers_env is not None else 5
-        if max_workers < 1:
-            print(f"⚠️  MAX_WORKERS must be >= 1, got {max_workers}. Defaulting to 5.")
-            max_workers = 5
-        elif max_workers > 32:
-            print(f"⚠️  MAX_WORKERS must be <= 32, got {max_workers}. Limiting to 32.")
-            max_workers = 32
-    except ValueError:
-        print(f"⚠️  Invalid MAX_WORKERS value: {max_workers_env}. Defaulting to 5.")
-        max_workers = 5
+    def get_max_workers():
+        """Parse and validate MAX_WORKERS environment variable."""
+        max_workers_env = os.getenv("MAX_WORKERS")
+        default_workers = 5
+        max_allowed_workers = 32
+        
+        try:
+            if max_workers_env is None:
+                return default_workers
+            
+            workers = int(max_workers_env)
+            
+            if workers < 1:
+                print(f"⚠️  MAX_WORKERS must be >= 1, got {workers}. Defaulting to {default_workers}.")
+                return default_workers
+            elif workers > max_allowed_workers:
+                print(f"⚠️  MAX_WORKERS must be <= {max_allowed_workers}, got {workers}. Limiting to {max_allowed_workers}.")
+                return max_allowed_workers
+            
+            return workers
+        except ValueError:
+            print(f"⚠️  Invalid MAX_WORKERS value: {max_workers_env}. Defaulting to {default_workers}.")
+            return default_workers
+    
+    max_workers = get_max_workers()
     results = verify_links_parallel(links, max_workers=max_workers)  # Fewer workers for polite requests
 
     # Analyze results

@@ -17,7 +17,8 @@ import subprocess
 # Constants
 PROGRESS_REPORT_INTERVAL_MB = 10  # Report progress every 10 MB
 RETRY_BASE_DELAY_SECONDS = 5  # Base delay for exponential backoff
-MB_TO_BYTES = 1024 * 1024  # Bytes in one megabyte
+MIB_TO_BYTES = 1024 * 1024  # Bytes in one mebibyte (binary megabyte)
+MIN_VALID_FILE_SIZE_MB = 10  # Minimum file size in MB to consider a download complete
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 
@@ -139,16 +140,16 @@ class ComfyUIModelDownloader:
 
                                 # Progress reporting
                                 if total_size > 0:
-                                    report_threshold = PROGRESS_REPORT_INTERVAL_MB * MB_TO_BYTES
+                                    report_threshold = PROGRESS_REPORT_INTERVAL_MB * MIB_TO_BYTES
                                     if downloaded - last_reported >= report_threshold or downloaded == total_size:
                                         progress = (downloaded / total_size) * 100
-                                        print(f"   📈 {progress:.1f}% ({downloaded / MB_TO_BYTES:.1f} MB)")
+                                        print(f"   📈 {progress:.1f}% ({downloaded / MIB_TO_BYTES:.1f} MB)")
                                         last_reported = downloaded
                                 else:
                                     # For files without content-length header, throttle logging
-                                    report_threshold = PROGRESS_REPORT_INTERVAL_MB * MB_TO_BYTES
+                                    report_threshold = PROGRESS_REPORT_INTERVAL_MB * MIB_TO_BYTES
                                     if downloaded - last_reported >= report_threshold:
-                                        print(f"   📥 Downloaded: {downloaded / MB_TO_BYTES:.1f} MB")
+                                        print(f"   📥 Downloaded: {downloaded / MIB_TO_BYTES:.1f} MB")
                                         last_reported = downloaded
 
                 print(f"✅ Successfully downloaded: {target_path}")
@@ -193,11 +194,11 @@ class ComfyUIModelDownloader:
             # Check if file exists and has reasonable size (not just a partial download)
             if target_path.exists():
                 file_size = target_path.stat().st_size
-                # Use 10MB threshold - AI models are typically gigabytes in size
+                # Use threshold - AI models are typically gigabytes in size
                 # Files smaller than this are likely incomplete/corrupted downloads
-                min_valid_size = 10 * MB_TO_BYTES  # 10MB
+                min_valid_size = MIN_VALID_FILE_SIZE_MB * MIB_TO_BYTES
                 if file_size > min_valid_size:
-                    print(f"⏭️  Skipping (already exists): {target_path.name} ({file_size / MB_TO_BYTES:.1f} MB)")
+                    print(f"⏭️  Skipping (already exists): {target_path.name} ({file_size / MIB_TO_BYTES:.1f} MB)")
                     return True
                 else:
                     print(f"⚠️  Incomplete file detected ({file_size} bytes), re-downloading: {target_path.name}")
@@ -243,7 +244,7 @@ class ComfyUIModelDownloader:
                         model_info[category] = []
 
                     file_path = Path(root) / file
-                    size_mb = file_path.stat().st_size / MB_TO_BYTES
+                    size_mb = file_path.stat().st_size / MIB_TO_BYTES
 
                     model_info[category].append({
                         'filename': file,
