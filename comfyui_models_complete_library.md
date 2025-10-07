@@ -224,7 +224,7 @@ Beliebte Community-entwickelte Modelle.
 | **Anything V5** | SD1.5 | https://huggingface.co/stablediffusionapi/anything-v5/resolve/main/anything-v5.safetensors |
 | **Counterfeit V3.0** | SD1.5 | https://huggingface.co/gsdf/Counterfeit-V3.0/resolve/main/Counterfeit-V3.0_fp16.safetensors |
 | **Animagine XL 3.1** | SDXL | https://huggingface.co/cagliostrolab/animagine-xl-3.1/resolve/main/animagine-xl-3.1.safetensors |
-| **Pony Diffusion V6 XL** | SDXL | https://huggingface.co/AstraliteHeart/pony-diffusion-v6-xl/resolve/main/ponyDiffusionV6XL_v6StartWithThisOne.safetensors |
+| **Pony Diffusion V6 XL** | SDXL | https://huggingface.co/astralite/PonyDiffusion-V6-XL/resolve/main/ponydiffusion_v6xl.safetensors |
 
 ---
 
