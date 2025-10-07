@@ -76,13 +76,13 @@ RUN cd /workspace && \
     /workspace/model_dl_venv/bin/pip install --no-cache-dir requests==2.31.0
 
 # Create model download script (runs only when DOWNLOAD_MODELS=true)
-RUN <<EOF cat > /usr/local/bin/download_comfyui_models.sh
+RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
 #!/bin/bash
 
-DOWNLOAD_MODELS=\${DOWNLOAD_MODELS:-false}
-HF_TOKEN=\${HF_TOKEN:-}
+DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-false}
+HF_TOKEN=${HF_TOKEN:-}
 
-if [ "\$DOWNLOAD_MODELS" = "true" ]; then
+if [ "$DOWNLOAD_MODELS" = "true" ]; then
     echo "🚀 Starting automatic download of ComfyUI models in background..."
     echo "📁 This may take a long time and require significant storage!"
     echo "💾 Ensure the mounted volume has enough free space."
@@ -91,27 +91,27 @@ if [ "\$DOWNLOAD_MODELS" = "true" ]; then
     cd /workspace
 
     # Run model download in background with logging
-    nohup bash -c '
+    nohup bash -c "
         set -e
         # Activate virtual environment
         source model_dl_venv/bin/activate
 
         # Verify links (if not already done)
-        if [ ! -f "link_verification_results.json" ]; then
-            echo "🔍 Checking link accessibility..."
-            export HF_TOKEN="$HF_TOKEN"
+        if [ ! -f 'link_verification_results.json' ]; then
+            echo '🔍 Checking link accessibility...'
+            export HF_TOKEN=\"$HF_TOKEN\"
             python3 /workspace/scripts/verify_links.py
         fi
 
         # Download models
-        echo "⬇️  Starting model download..."
-        export HF_TOKEN="$HF_TOKEN"
+        echo '⬇️  Starting model download...'
+        export HF_TOKEN=\"$HF_TOKEN\"
         python3 /workspace/scripts/download_models.py /workspace
 
-        echo "✅ Model download finished!"
-    ' > /workspace/model_download.log 2>&1 &
+        echo '✅ Model download finished!'
+    " > /workspace/model_download.log 2>&1 &
     
-    echo "✅ Model download started in background (PID: \$!)"
+    echo "✅ Model download started in background (PID: $!)"
 else
     echo "ℹ️  Model download skipped (DOWNLOAD_MODELS != true)"
 fi

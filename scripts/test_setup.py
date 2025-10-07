@@ -201,10 +201,10 @@ except Exception as e:
                         url_name = Path(entry['url']).name
                         print(f"✅ {url_name} -> {entry['result']}")
                     print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
+                    return True  # Return True on success
                 except Exception:
                     print(f"❌ Error parsing classification results: {result.stdout.strip()}")
                     return False
-                return True
             else:
                 print(f"❌ Unknown error during classification: {result.stdout.strip()}")
                 return False
