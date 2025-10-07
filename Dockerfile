@@ -67,7 +67,8 @@ RUN set -e; \
 # --- TEIL 3.5: Model Download Scripts ---
 
 # Kopiere Model-Dokumentation und Scripts ins Image
-COPY comfyui_models_complete_library.md scripts/verify_links.py scripts/download_models.py /workspace/
+COPY comfyui_models_complete_library.md /workspace/
+COPY scripts/verify_links.py scripts/download_models.py /workspace/scripts/
 
 # Erstelle virtuelle Umgebung für Download-Scripts
 RUN cd /workspace && \
@@ -94,13 +95,13 @@ if [ "\$DOWNLOAD_MODELS" = "true" ]; then
 
     # Überprüfe Links (falls noch nicht geschehen)
     if [ ! -f "link_verification_results.json" ]; then
-        echo "🔍 Überprüfe Links auf Erreichbarkeit..."
-        HF_TOKEN="\$HF_TOKEN" python3 scripts/verify_links.py
+        echo "🔍 Checking link accessibility..."
+        HF_TOKEN="\$HF_TOKEN" python3 /workspace/scripts/verify_links.py
     fi
 
     # Lade Modelle herunter
-    echo "⬇️  Starte Model-Download..."
-    HF_TOKEN="\$HF_TOKEN" python3 scripts/download_models.py /workspace
+    echo "⬇️  Starting model download..."
+    HF_TOKEN="\$HF_TOKEN" python3 /workspace/scripts/download_models.py /workspace
 
     echo "✅ Model-Download abgeschlossen!"
 else

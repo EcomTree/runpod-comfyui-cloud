@@ -106,8 +106,10 @@ def test_model_classification():
             ("https://example.com/control_v11p_sd15_canny.pth", "controlnet"),
         ]
 
-        # Importiere die Funktion (ohne echte Abhängigkeiten)
+        # Add scripts to path before import
         sys.path.append("scripts")
+        
+        # Import the function (without real dependencies)
         from download_models import ComfyUIModelDownloader
 
         downloader = ComfyUIModelDownloader()

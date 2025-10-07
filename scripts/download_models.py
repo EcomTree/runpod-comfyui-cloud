@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ComfyUI Model Downloader Script
-Lädt alle validierten ComfyUI Modelle in das angegebene Verzeichnis herunter.
+Downloads all validated ComfyUI models to the specified directory.
 """
 
 import os
@@ -24,7 +24,7 @@ SESSION.headers.update({
 if HF_TOKEN:
     SESSION.headers['Authorization'] = f'Bearer {HF_TOKEN.strip()}'
 else:
-    print("⚠️  Kein HF_TOKEN gesetzt. Geschützte Hugging Face Downloads können fehlschlagen.")
+    print("⚠️  No HF_TOKEN set. Protected Hugging Face downloads may fail.")
 
 
 class ComfyUIModelDownloader:
@@ -38,7 +38,7 @@ class ComfyUIModelDownloader:
         self.create_directory_structure()
 
     def create_directory_structure(self):
-        """Erstellt die notwendige ComfyUI Verzeichnisstruktur."""
+        """Creates the necessary ComfyUI directory structure."""
         directories = [
             "checkpoints",
             "unet",
@@ -58,32 +58,30 @@ class ComfyUIModelDownloader:
         for dir_name in directories:
             (self.models_dir / dir_name).mkdir(parents=True, exist_ok=True)
 
-        print(f"📁 Verzeichnisstruktur erstellt in: {self.models_dir}")
+        print(f"📁 Directory structure created in: {self.models_dir}")
 
     def load_verified_links(self):
-        """Lädt die verifizierten Links aus der JSON-Datei."""
+        """Loads the verified links from the JSON file."""
         try:
             with open(self.verification_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 return data.get('valid_links', [])
         except FileNotFoundError:
-            print(f"❌ Verifikationsdatei {self.verification_file} nicht gefunden!")
-            print("🔍 Führe zuerst 'python3 scripts/verify_links.py' aus.")
+            print(f"❌ Verification file {self.verification_file} not found!")
+            print("🔍 Run 'python3 scripts/verify_links.py' first.")
             sys.exit(1)
 
     def determine_target_directory(self, url):
-        """Bestimmt das Zielverzeichnis basierend auf der URL und dem Dateinamen."""
+        """Determines the target directory based on URL and filename."""
         filename = Path(urlparse(url).path).name.lower()
 
-        # Mapping von Dateiendungen zu Verzeichnissen
+        # Mapping of patterns to directories
+        # IMPORTANT: Order matters! More specific patterns first, generic patterns last
         mapping = {
-            # Checkpoints (SD1.5, SDXL, etc.)
-            'checkpoints': ['.ckpt', '.safetensors'],
-
-            # FLUX und andere UNet Modelle
+            # FLUX and other UNet Models (check before generic .safetensors)
             'unet': ['flux', 'sd3', 'auraflow', 'hunyuan', 'kolors', 'lumina'],
 
-            # VAE Modelle
+            # VAE Models
             'vae': ['vae', 'kl-f8-anime'],
 
             # CLIP Encoder
@@ -98,7 +96,7 @@ class ComfyUIModelDownloader:
             # ControlNet
             'controlnet': ['controlnet', 'control_', 'canny', 'depth', 'openpose', 'scribble'],
 
-            # LoRAs
+            # LoRAs (check before generic .safetensors)
             'loras': ['lora', '.lora'],
 
             # Upscaler
@@ -110,8 +108,11 @@ class ComfyUIModelDownloader:
             # IP-Adapter
             'ipadapter': ['ip-adapter', 'ip_adapter'],
 
-            # Text Encoders (allgemein)
-            'text_encoders': ['text_encoder', 'encoder']
+            # Text Encoders (general)
+            'text_encoders': ['text_encoder', 'encoder'],
+            
+            # Checkpoints (SD1.5, SDXL, etc.) - Generic extensions last!
+            'checkpoints': ['.ckpt', '.safetensors'],
         }
 
         for directory, patterns in mapping.items():
@@ -127,13 +128,13 @@ class ComfyUIModelDownloader:
         return "diffusion_models"
 
     def download_file(self, url, target_path, retry_count=3):
-        """Lädt eine einzelne Datei herunter mit Retry-Logik."""
+        """Downloads a single file with retry logic."""
         target_path = Path(target_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
         for attempt in range(retry_count):
             try:
-                print(f"⬇️  Lade herunter: {Path(url).name} (Versuch {attempt + 1}/{retry_count})")
+                print(f"⬇️  Downloading: {Path(url).name} (Attempt {attempt + 1}/{retry_count})")
 
                 # Stream download für große Dateien
                 with self.session.get(url, stream=True, timeout=30) as response:
@@ -149,39 +150,39 @@ class ComfyUIModelDownloader:
                                 f.write(chunk)
                                 downloaded += len(chunk)
 
-                                # Fortschritt für große Dateien
-                                if total_size > 0 and downloaded % (10 * 1024 * 1024) == 0:  # Alle 10MB
+                                # Progress for large files
+                                if total_size > 0 and downloaded % (10 * 1024 * 1024) == 0:  # Every 10MB
                                     progress = (downloaded / total_size) * 100
                                     print(f"   📈 {progress:.1f}% ({downloaded / 1024 / 1024:.1f} MB)")
 
-                print(f"✅ Erfolgreich heruntergeladen: {target_path}")
+                print(f"✅ Successfully downloaded: {target_path}")
                 return True
 
             except requests.exceptions.RequestException as e:
-                print(f"❌ Fehler beim Download (Versuch {attempt + 1}): {e}")
+                print(f"❌ Download error (Attempt {attempt + 1}): {e}")
                 if attempt < retry_count - 1:
-                    wait_time = (attempt + 1) * 5  # Exponentielles Backoff
-                    print(f"⏳ Warte {wait_time} Sekunden vor erneutem Versuch...")
+                    wait_time = (attempt + 1) * 5  # Exponential backoff
+                    print(f"⏳ Waiting {wait_time} seconds before retry...")
                     time.sleep(wait_time)
                 else:
-                    print(f"❌ Maximale Versuche erreicht für: {url}")
+                    print(f"❌ Maximum retries reached for: {url}")
                     return False
 
             except Exception as e:
-                print(f"❌ Unerwarteter Fehler: {e}")
+                print(f"❌ Unexpected error: {e}")
                 return False
 
     def download_all_models(self, parallel_downloads=3):
-        """Lädt alle Modelle herunter."""
+        """Downloads all models."""
         valid_links = self.load_verified_links()
 
         if not valid_links:
-            print("❌ Keine validierten Links gefunden!")
+            print("❌ No validated links found!")
             return
 
-        print(f"🚀 Starte Download von {len(valid_links)} Modellen...")
-        print(f"📁 Zielverzeichnis: {self.models_dir}")
-        print(f"⚡ Parallele Downloads: {parallel_downloads}")
+        print(f"🚀 Starting download of {len(valid_links)} models...")
+        print(f"📁 Target directory: {self.models_dir}")
+        print(f"⚡ Parallel downloads: {parallel_downloads}")
 
         successful = 0
         failed = 0
@@ -193,38 +194,38 @@ class ComfyUIModelDownloader:
             target_dir = self.determine_target_directory(url)
             target_path = self.models_dir / target_dir / Path(url).name
 
-            # Überspringe, wenn Datei bereits existiert
+            # Skip if file already exists
             if target_path.exists():
-                print(f"⏭️  Überspringe (bereits vorhanden): {target_path.name}")
+                print(f"⏭️  Skipping (already exists): {target_path.name}")
                 return True
 
             return self.download_file(url, target_path)
 
-        # Führe Downloads sequentiell aus (stabiler für große Dateien)
+        # Execute downloads sequentially (more stable for large files)
         for i, url in enumerate(valid_links, 1):
-            print(f"\n📦 [{i}/{len(valid_links)}] Verarbeite: {Path(url).name}")
+            print(f"\n📦 [{i}/{len(valid_links)}] Processing: {Path(url).name}")
 
             if download_single_model(url):
                 successful += 1
             else:
                 failed += 1
 
-            # Kurze Pause zwischen Downloads
+            # Short pause between downloads
             time.sleep(1)
 
-        print("\n🎉 Download-Statistik:")
-        print(f"✅ Erfolgreich: {successful}")
-        print(f"❌ Fehlgeschlagen: {failed}")
-        print(f"📊 Erfolgsrate: {(successful / (successful + failed)) * 100:.1f}%")
+        print("\n🎉 Download Statistics:")
+        print(f"✅ Successful: {successful}")
+        print(f"❌ Failed: {failed}")
+        print(f"📊 Success rate: {(successful / (successful + failed)) * 100:.1f}%")
 
         if failed > 0:
-            print(f"\n⚠️  {failed} Downloads sind fehlgeschlagen.")
-            print("🔄 Du kannst das Script erneut ausführen, um fehlgeschlagene Downloads zu wiederholen.")
+            print(f"\n⚠️  {failed} downloads failed.")
+            print("🔄 You can run the script again to retry failed downloads.")
         else:
-            print("\n🎊 Alle Downloads erfolgreich abgeschlossen!")
+            print("\n🎊 All downloads completed successfully!")
 
     def create_download_summary(self):
-        """Erstellt eine Zusammenfassung der heruntergeladenen Modelle."""
+        """Creates a summary of downloaded models."""
         summary_file = self.base_dir / "downloaded_models_summary.json"
 
         model_info = {}
@@ -243,10 +244,10 @@ class ComfyUIModelDownloader:
                     model_info[category].append({
                         'filename': file,
                         'size_mb': round(size_mb, 2),
-                        'path': str(file_path.relative_to(self.base_dir))
-                    })
+                    'path': str(file_path.relative_to(self.base_dir))
+                })
 
-        # Sortiere nach Kategorie und Dateiname
+        # Sort by category and filename
         for category in model_info:
             model_info[category].sort(key=lambda x: x['filename'])
 
@@ -258,12 +259,12 @@ class ComfyUIModelDownloader:
                 'models': model_info
             }, f, indent=2, ensure_ascii=False)
 
-        print(f"📋 Download-Zusammenfassung erstellt: {summary_file}")
+        print(f"📋 Download summary created: {summary_file}")
 
         return summary_file
 
 def main():
-    """Hauptfunktion."""
+    """Main function."""
     if len(sys.argv) > 1:
         base_dir = sys.argv[1]
     else:
@@ -271,35 +272,36 @@ def main():
 
     print("🤖 ComfyUI Model Downloader")
     print("=" * 50)
-    print(f"📁 Basisverzeichnis: {base_dir}")
+    print(f"📁 Base directory: {base_dir}")
 
     downloader = ComfyUIModelDownloader(base_dir)
 
-    # Bestätigung einholen
-    print("\n⚠️  ACHTUNG: Dies wird viele große Modelle herunterladen!")
-    print("💾 Stelle sicher, dass genügend Speicherplatz verfügbar ist.")
-    print("🌐 Eine stabile Internetverbindung wird empfohlen.")
+    # Get confirmation (only if running interactively)
+    print("\n⚠️  WARNING: This will download many large models!")
+    print("💾 Make sure you have enough storage space available.")
+    print("🌐 A stable internet connection is recommended.")
 
-    try:
-        input("\n🚀 Drücke Enter um mit dem Download zu beginnen...")
-    except KeyboardInterrupt:
-        print("\n⏹️  Download abgebrochen.")
-        sys.exit(0)
+    if sys.stdin.isatty():
+        try:
+            input("\n🚀 Press Enter to start the download...")
+        except KeyboardInterrupt:
+            print("\n⏹️  Download cancelled.")
+            sys.exit(0)
 
     # Start download
     start_time = time.time()
-    downloader.download_all_models(parallel_downloads=1)  # Sequentiell für Stabilität
+    downloader.download_all_models(parallel_downloads=1)  # Sequential for stability
     download_time = time.time() - start_time
 
-    # Erstelle Zusammenfassung
-    print("\n📋 Erstelle Download-Zusammenfassung...")
+    # Create summary
+    print("\n📋 Creating download summary...")
     summary_file = downloader.create_download_summary()
 
-    print("\n⏱️  Download-Dauer:")
-    print(f"   {download_time:.1f} Sekunden ({download_time/60:.1f} Minuten)")
+    print("\n⏱️  Download duration:")
+    print(f"   {download_time:.1f} seconds ({download_time/60:.1f} minutes)")
 
-    print("\n✅ Download-Prozess abgeschlossen!")
-    print(f"📄 Siehe {summary_file} für Details.")
+    print("\n✅ Download process completed!")
+    print(f"📄 See {summary_file} for details.")
 
 if __name__ == "__main__":
     main()

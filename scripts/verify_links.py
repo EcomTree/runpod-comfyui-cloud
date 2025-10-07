@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Link Verification Script for ComfyUI Models Library
-Überprüft alle Hugging Face Links auf Erreichbarkeit und Korrektheit.
+Verifies all Hugging Face links for accessibility and correctness.
 """
 
 import os
@@ -11,6 +11,7 @@ import json
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
+from pathlib import Path
 import time
 
 HF_TOKEN = os.getenv("HF_TOKEN")
@@ -23,10 +24,10 @@ SESSION.headers.update({
 if HF_TOKEN:
     SESSION.headers['Authorization'] = f'Bearer {HF_TOKEN.strip()}'
 else:
-    print("⚠️  Kein HF_TOKEN gesetzt. Geschützte Hugging Face Links können fehlschlagen.")
+    print("⚠️  No HF_TOKEN set. Protected Hugging Face links may fail.")
 
 def extract_huggingface_links(content):
-    """Extrahiert alle Hugging Face Links aus dem Markdown-Inhalt."""
+    """Extracts all Hugging Face links from the markdown content."""
     # Regex für Hugging Face Links (https://huggingface.co/...)
     hf_pattern = r'https://huggingface\.co/[^\s\)]+'
     links = re.findall(hf_pattern, content)
@@ -40,7 +41,7 @@ def extract_huggingface_links(content):
     return download_links
 
 def check_link(link, timeout=10):
-    """Überprüft einen einzelnen Link."""
+    """Checks a single link."""
     try:
         # Entferne query parameters für saubere URL
         clean_link = link.split('?')[0] if '?' in link else link
@@ -92,10 +93,10 @@ def check_link(link, timeout=10):
         }
 
 def verify_links_parallel(links, max_workers=10):
-    """Überprüft Links parallel."""
+    """Verifies links in parallel."""
     results = []
 
-    print(f"🔍 Überprüfe {len(links)} Links mit {max_workers} parallelen Anfragen...")
+    print(f"🔍 Checking {len(links)} links with {max_workers} parallel requests...")
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
@@ -115,7 +116,7 @@ def verify_links_parallel(links, max_workers=10):
     return results
 
 def analyze_results(results):
-    """Analysiert die Überprüfungsergebnisse."""
+    """Analyzes the verification results."""
     stats = {
         'valid': 0,
         'invalid': 0,
@@ -138,7 +139,7 @@ def analyze_results(results):
     return stats, valid_links, invalid_links
 
 def print_report(stats, valid_links, invalid_links):
-    """Gibt einen detaillierten Bericht aus."""
+    """Prints a detailed report."""
     print("\n" + "="*60)
     print("📋 LINK VERIFICATION REPORT")
     print("="*60)
@@ -171,37 +172,48 @@ def print_report(stats, valid_links, invalid_links):
         print(f"• {link}")
 
 def main():
-    """Hauptfunktion."""
-    # Lese die Markdown-Datei
+    """Main function."""
+    # Find the markdown file relative to the script location
+    script_dir = Path(__file__).parent
+    markdown_file = script_dir.parent / 'comfyui_models_complete_library.md'
+    
+    # If running from /workspace (Docker), try there too
+    if not markdown_file.exists():
+        markdown_file = Path('/workspace/comfyui_models_complete_library.md')
+    
+    # Read the markdown file
     try:
-        with open('/Users/sebastianhein/Development/runpod-comfyui-cloud/comfyui_models_complete_library.md', 'r', encoding='utf-8') as f:
+        with open(markdown_file, 'r', encoding='utf-8') as f:
             content = f.read()
     except FileNotFoundError:
-        print("❌ comfyui_models_complete_library.md nicht gefunden!")
+        print(f"❌ comfyui_models_complete_library.md not found at {markdown_file}!")
         sys.exit(1)
 
-    # Extrahiere Links
-    print("🔍 Extrahiere Links aus der Dokumentation...")
+    # Extract links
+    print("🔍 Extracting links from documentation...")
     links = extract_huggingface_links(content)
 
     if not links:
-        print("❌ Keine Hugging Face Links gefunden!")
+        print("❌ No Hugging Face links found!")
         sys.exit(1)
 
-    print(f"📎 Gefunden: {len(links)} Links")
-    print(f"🔍 Überprüfe Erreichbarkeit...")
+    print(f"📎 Found: {len(links)} links")
+    print(f"🔍 Checking accessibility...")
 
-    # Überprüfe Links (mit Rate Limiting)
-    results = verify_links_parallel(links, max_workers=5)  # Weniger Worker für höfliche Anfragen
+    # Verify links (with rate limiting)
+    results = verify_links_parallel(links, max_workers=5)  # Fewer workers for polite requests
 
-    # Analysiere Ergebnisse
+    # Analyze results
     stats, valid_links, invalid_links = analyze_results(results)
 
-    # Bericht ausgeben
+    # Print report
     print_report(stats, valid_links, invalid_links)
 
-    # Speichere detaillierte Ergebnisse
-    output_file = '/Users/sebastianhein/Development/runpod-comfyui-cloud/link_verification_results.json'
+    # Save detailed results
+    # Save to script directory or /workspace if in Docker
+    output_file = script_dir.parent / 'link_verification_results.json'
+    if not output_file.parent.exists():
+        output_file = Path('/workspace/link_verification_results.json')
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump({
             'stats': stats,
@@ -210,17 +222,17 @@ def main():
             'timestamp': time.time()
         }, f, indent=2, ensure_ascii=False)
 
-    print(f"\n💾 Detaillierte Ergebnisse gespeichert in: {output_file}")
+    print(f"\n💾 Detailed results saved to: {output_file}")
 
-    # Exit code basierend auf Erfolg
+    # Exit code based on success
     if stats['valid'] == 0:
-        print("❌ Alle Links sind ungültig!")
+        print("❌ All links are invalid!")
         sys.exit(1)
     elif stats['invalid'] > 0:
-        print(f"⚠️  {stats['invalid']} Links sind ungültig, aber {stats['valid']} funktionieren.")
-        sys.exit(0)  # Nicht-kritisch
+        print(f"⚠️  {stats['invalid']} links are invalid, but {stats['valid']} work.")
+        sys.exit(0)  # Non-critical
     else:
-        print("✅ Alle Links sind gültig!")
+        print("✅ All links are valid!")
         sys.exit(0)
 
 if __name__ == "__main__":
