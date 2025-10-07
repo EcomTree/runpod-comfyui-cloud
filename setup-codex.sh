@@ -263,33 +263,34 @@ fi
 # ============================================================
 # 3. Git Branch Management
 # ============================================================
-echo_info "🌿 Ensuring repository is on main branch..."
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+echo_info "🌿 Current branch: $CURRENT_BRANCH"
 
 GIT_FETCH_LOG="$(mktemp /tmp/git-fetch.XXXXXX.log)"
 GIT_PULL_LOG="$(mktemp /tmp/git-pull.XXXXXX.log)"
 
-if git fetch origin main --tags >"$GIT_FETCH_LOG" 2>&1; then
-    if git show-ref --verify --quiet refs/heads/main; then
-        if ! git checkout main 2>/dev/null; then
-            echo_warning "Local main branch broken – recreating from origin/main"
-            git checkout -B main origin/main 2>&1 | grep -v "^Switched" || true
-        fi
-    else
-        git checkout -B main origin/main 2>&1 | grep -v "^Switched" || true
-    fi
-
+# Fetch latest changes
+if git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
+    echo_success "Fetched latest changes from origin"
+    
+    # Try to update current branch if tracking remote
     if git status --short --porcelain | grep -q ""; then
         echo_warning "Local changes present – skipping git pull"
         echo_info "Run 'git status' to see changes"
     else
-        if git pull --ff-only origin main >"$GIT_PULL_LOG" 2>&1; then
-            echo_success "Branch main successfully updated"
+        # Only pull if we have a tracking branch
+        if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+            if git pull --ff-only >"$GIT_PULL_LOG" 2>&1; then
+                echo_success "Branch $CURRENT_BRANCH successfully updated"
+            else
+                echo_info "Could not fast-forward – manual merge may be needed"
+            fi
         else
-            echo_warning "Could not update main – please check manually"
+            echo_info "No upstream tracking branch configured"
         fi
     fi
 else
-    echo_warning "Fetch from origin/main failed – working with existing copy"
+    echo_warning "Fetch from origin failed – working with existing copy"
 fi
 rm -f "$GIT_FETCH_LOG" "$GIT_PULL_LOG"
 
