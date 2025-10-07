@@ -215,7 +215,7 @@ def get_max_workers():
         
         return workers
     except ValueError:
-        print(f"⚠️  Invalid MAX_WORKERS value: {max_workers_env}. Defaulting to {default_workers}.")
+        print(f"⚠️  Invalid MAX_WORKERS format: {max_workers_env}. Defaulting to {default_workers}.")
         return default_workers
 
 def main():
@@ -263,9 +263,15 @@ def main():
     
     # Check if directory exists and is writable
     try:
-        if not output_file.parent.exists() or not os.access(output_file.parent, os.W_OK):
+        # Ensure parent directory exists
+        if not output_file.parent.exists():
+            print(f"⚠️  Parent directory {output_file.parent} does not exist. Using /workspace instead.")
             output_file = Path('/workspace/link_verification_results.json')
-    except Exception:
+        elif not os.access(output_file.parent, os.W_OK):
+            print(f"⚠️  Parent directory {output_file.parent} is not writable. Using /workspace instead.")
+            output_file = Path('/workspace/link_verification_results.json')
+    except (OSError, PermissionError) as e:
+        print(f"⚠️  Filesystem error checking {output_file.parent}: {e}. Using /workspace instead.")
         output_file = Path('/workspace/link_verification_results.json')
     
     try:

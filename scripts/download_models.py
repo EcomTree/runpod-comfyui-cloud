@@ -18,7 +18,8 @@ import subprocess
 PROGRESS_REPORT_INTERVAL_MB = 10  # Report progress every 10 MB
 RETRY_BASE_DELAY_SECONDS = 5  # Base delay for exponential backoff
 MIB_TO_BYTES = 1024 * 1024  # Bytes in one mebibyte (binary megabyte)
-MIN_VALID_FILE_SIZE_KB = 100  # Minimum file size in KB to consider a download complete (100KB)
+KB_TO_BYTES = 1024  # Bytes in one kilobyte
+MIN_VALID_FILE_SIZE_KB = 10  # Minimum file size in KB to consider a download complete (10KB for small LoRAs)
 
 # Model classification mapping: ordered from most specific to most general
 MODEL_CLASSIFICATION_MAPPING = [
@@ -195,21 +196,24 @@ class ComfyUIModelDownloader:
             # Check if file exists and has reasonable size (not just a partial download)
             if target_path.exists():
                 file_size = target_path.stat().st_size
-                # Use conservative threshold (100KB) - catches obvious failures
-                # but allows small models like LoRAs (which can be <10MB)
-                min_valid_size = MIN_VALID_FILE_SIZE_KB * 1024
+                # Use conservative threshold (10KB) - catches obvious failures
+                # but allows small models like LoRAs (which can be <1MB)
+                min_valid_size = MIN_VALID_FILE_SIZE_KB * KB_TO_BYTES
                 if file_size > min_valid_size:
                     print(f"⏭️  Skipping (already exists): {target_path.name} ({file_size / MIB_TO_BYTES:.1f} MB)")
                     return True
                 else:
-                    print(f"⚠️  Incomplete file detected ({file_size / 1024:.1f} KB), re-downloading: {target_path.name}")
+                    print(f"⚠️  Incomplete file detected ({file_size / KB_TO_BYTES:.1f} KB), re-downloading: {target_path.name}")
                     target_path.unlink()  # Delete incomplete file
 
             return self.download_file(url, target_path)
 
         # Execute downloads sequentially (more stable for large files)
         for i, url in enumerate(valid_links, 1):
-            print(f"\n📦 [{i}/{len(valid_links)}] Processing: {Path(url).name}")
+            # Extract filename from URL properly (handle query parameters)
+            clean_url = url.split('?')[0]
+            filename = Path(urlparse(clean_url).path).name
+            print(f"\n📦 [{i}/{len(valid_links)}] Processing: {filename}")
 
             if download_single_model(url):
                 successful += 1
@@ -257,12 +261,15 @@ class ComfyUIModelDownloader:
         for category in model_info:
             model_info[category].sort(key=lambda x: x['filename'])
 
+        # Get repository URL from environment or use default
+        repository_url = os.getenv('REPOSITORY_URL', 'https://github.com/EcomTree/runpod-comfyui-cloud')
+        
         with open(summary_file, 'w', encoding='utf-8') as f:
             json.dump({
                 'total_files': sum(len(files) for files in model_info.values()),
                 'total_size_mb': round(sum(sum(f['size_mb'] for f in files) for files in model_info.values()), 2),
                 'download_date': time.time(),
-                'repository': 'https://github.com/EcomTree/runpod-comfyui-cloud',
+                'repository': repository_url,
                 'models': model_info
             }, f, indent=2, ensure_ascii=False)
 

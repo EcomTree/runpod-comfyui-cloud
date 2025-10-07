@@ -183,9 +183,11 @@ except Exception as e:
                 return False
             elif result.returncode == 1:
                 try:
+                    from urllib.parse import urlparse
                     output = json.loads(result.stdout)
                     for entry in output.get('results', []):
-                        url_name = Path(entry['url']).name
+                        # Extract filename from URL properly
+                        url_name = Path(urlparse(entry['url']).path).name
                         if entry['result'] == entry['expected']:
                             print(f"✅ {url_name} -> {entry['result']}")
                         else:
@@ -196,9 +198,11 @@ except Exception as e:
                 return False
             elif result.returncode == 0:
                 try:
+                    from urllib.parse import urlparse
                     output = json.loads(result.stdout)
                     for entry in output.get('results', []):
-                        url_name = Path(entry['url']).name
+                        # Extract filename from URL properly
+                        url_name = Path(urlparse(entry['url']).path).name
                         print(f"✅ {url_name} -> {entry['result']}")
                     print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
                     return True  # Return True on success
