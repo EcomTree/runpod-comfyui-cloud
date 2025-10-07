@@ -193,8 +193,9 @@ class ComfyUIModelDownloader:
             # Check if file exists and has reasonable size (not just a partial download)
             if target_path.exists():
                 file_size = target_path.stat().st_size
-                # Use 100KB threshold - files smaller than this are likely incomplete/corrupted
-                min_valid_size = 100 * 1024  # 100KB
+                # Use 10MB threshold - AI models are typically gigabytes in size
+                # Files smaller than this are likely incomplete/corrupted downloads
+                min_valid_size = 10 * MB_TO_BYTES  # 10MB
                 if file_size > min_valid_size:
                     print(f"⏭️  Skipping (already exists): {target_path.name} ({file_size / MB_TO_BYTES:.1f} MB)")
                     return True
