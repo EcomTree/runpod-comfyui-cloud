@@ -106,28 +106,73 @@ def test_model_classification():
             ("https://example.com/control_v11p_sd15_canny.pth", "controlnet"),
         ]
 
-        # Add scripts to path before import
-        sys.path.append("scripts")
-
-        # Import the function (without real dependencies)
-        from download_models import ComfyUIModelDownloader
-
-        downloader = ComfyUIModelDownloader()
-
-        correct = 0
-        for url, expected in test_cases:
-            result = downloader.determine_target_directory(url)
-            if result == expected:
-                correct += 1
-                print(f"✅ {Path(url).name} -> {result}")
-            else:
-                print(f"❌ {Path(url).name} -> {result} (expected: {expected})")
-
-        success_rate = (correct / len(test_cases)) * 100
-        print(f"📊 Classification accuracy: {success_rate:.1f}%")
-
-        return success_rate >= 80  # At least 80% correct
-
+        # Run the classification test in a subprocess to avoid dependency issues
+        import subprocess
+        import json
+        script = """
+import sys
+import json
+sys.path.append('scripts')
+try:
+    from download_models import ComfyUIModelDownloader
+    test_cases = [
+        ("https://example.com/flux1-dev.safetensors", "unet"),
+        ("https://example.com/sd_xl_base_1.0.safetensors", "checkpoints"),
+        ("https://example.com/vae-ft-mse.safetensors", "vae"),
+        ("https://example.com/clip_l.safetensors", "clip"),
+        ("https://example.com/t5xxl_fp16.safetensors", "t5"),
+        ("https://example.com/control_v11p_sd15_canny.pth", "controlnet"),
+    ]
+    downloader = ComfyUIModelDownloader()
+    correct = 0
+    results = []
+    for url, expected in test_cases:
+        result = downloader.determine_target_directory(url)
+        results.append({'url': url, 'expected': expected, 'result': result})
+        if result == expected:
+            correct += 1
+    success_rate = (correct / len(test_cases)) * 100
+    print(json.dumps({'results': results, 'success_rate': success_rate}))
+    sys.exit(0 if success_rate >= 80 else 1)
+except Exception as e:
+    print(json.dumps({'error': str(e)}))
+    sys.exit(2)
+"""
+        result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
+        if result.returncode == 2:
+            try:
+                error_info = json.loads(result.stdout)
+                print(f"❌ Error during classification: {error_info.get('error', 'Unknown error')}")
+            except Exception:
+                print(f"❌ Error during classification: {result.stdout.strip()}")
+            return False
+        elif result.returncode == 1:
+            try:
+                output = json.loads(result.stdout)
+                for entry in output.get('results', []):
+                    url_name = Path(entry['url']).name
+                    if entry['result'] == entry['expected']:
+                        print(f"✅ {url_name} -> {entry['result']}")
+                    else:
+                        print(f"❌ {url_name} -> {entry['result']} (expected: {entry['expected']})")
+                print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
+            except Exception:
+                print(f"❌ Error parsing classification results: {result.stdout.strip()}")
+            return False
+        elif result.returncode == 0:
+            try:
+                output = json.loads(result.stdout)
+                for entry in output.get('results', []):
+                    url_name = Path(entry['url']).name
+                    print(f"✅ {url_name} -> {entry['result']}")
+                print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
+            except Exception:
+                print(f"❌ Error parsing classification results: {result.stdout.strip()}")
+                return False
+            return True
+        else:
+            print(f"❌ Unknown error during classification: {result.stdout.strip()}")
+            return False
     except Exception as e:
         print(f"❌ Error during classification: {e}")
         return False
