@@ -14,6 +14,10 @@ from pathlib import Path
 from urllib.parse import urlparse
 import subprocess
 
+# Constants
+PROGRESS_REPORT_INTERVAL_MB = 10  # Report progress every 10 MB
+RETRY_BASE_DELAY_SECONDS = 5  # Base delay for exponential backoff
+
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 SESSION = requests.Session()
@@ -131,7 +135,8 @@ class ComfyUIModelDownloader:
 
                                 # Progress for large files
                                 if total_size > 0:
-                                    if downloaded - last_reported >= 10 * 1024 * 1024 or downloaded == total_size:
+                                    report_threshold = PROGRESS_REPORT_INTERVAL_MB * 1024 * 1024
+                                    if downloaded - last_reported >= report_threshold or downloaded == total_size:
                                         progress = (downloaded / total_size) * 100
                                         print(f"   📈 {progress:.1f}% ({downloaded / 1024 / 1024:.1f} MB)")
                                         last_reported = downloaded
@@ -142,7 +147,7 @@ class ComfyUIModelDownloader:
             except requests.exceptions.RequestException as e:
                 print(f"❌ Download error (Attempt {attempt + 1}): {e}")
                 if attempt < retry_count - 1:
-                    wait_time = (attempt + 1) * 5  # Exponential backoff
+                    wait_time = (attempt + 1) * RETRY_BASE_DELAY_SECONDS  # Exponential backoff
                     print(f"⏳ Waiting {wait_time} seconds before retry...")
                     time.sleep(wait_time)
                 else:
@@ -153,8 +158,8 @@ class ComfyUIModelDownloader:
                 print(f"❌ Unexpected error: {e}")
                 return False
 
-    def download_all_models(self, parallel_downloads=3):
-        """Downloads all models."""
+    def download_all_models(self):
+        """Downloads all models sequentially for stability."""
         valid_links = self.load_verified_links()
 
         if not valid_links:
@@ -163,7 +168,6 @@ class ComfyUIModelDownloader:
 
         print(f"🚀 Starting download of {len(valid_links)} models...")
         print(f"📁 Target directory: {self.models_dir}")
-        print(f"⚡ Parallel downloads: {parallel_downloads}")
 
         successful = 0
         failed = 0
@@ -234,6 +238,7 @@ class ComfyUIModelDownloader:
                 'total_files': sum(len(files) for files in model_info.values()),
                 'total_size_mb': round(sum(sum(f['size_mb'] for f in files) for files in model_info.values()), 2),
                 'download_date': time.time(),
+                'repository': 'https://github.com/EcomTree/runpod-comfyui-cloud',
                 'models': model_info
             }, f, indent=2, ensure_ascii=False)
 

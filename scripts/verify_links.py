@@ -16,13 +16,20 @@ import time
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 
+# Validate HF_TOKEN format if provided
+if HF_TOKEN:
+    HF_TOKEN = HF_TOKEN.strip()
+    if not HF_TOKEN.startswith('hf_') or len(HF_TOKEN) < 10:
+        print("⚠️  Warning: HF_TOKEN format appears invalid. Valid tokens start with 'hf_' and have sufficient length.")
+        print("⚠️  Protected Hugging Face links may fail.")
+
 SESSION = requests.Session()
 SESSION.headers.update({
     'User-Agent': 'ComfyUI-Model-Link-Checker/1.0'
 })
 
 if HF_TOKEN:
-    SESSION.headers['Authorization'] = f'Bearer {HF_TOKEN.strip()}'
+    SESSION.headers['Authorization'] = f'Bearer {HF_TOKEN}'
 else:
     print("⚠️  No HF_TOKEN set. Protected Hugging Face links may fail.")
 
