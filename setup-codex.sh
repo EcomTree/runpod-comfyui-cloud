@@ -195,7 +195,13 @@ echo_info "📝 Script Version: 4.0 (ComfyUI Cloud Pod Edition)"
 # ============================================================
 echo_info "🔍 Running pre-flight checks..."
 
-# Check if we're in Codex environment (typical indicators)
+# Codex Environment Detection:
+# A 'Codex environment' is typically identified by either:
+#   1. The presence of the '/workspace' directory (used in Codex/RunPod cloud pods)
+#   2. The 'CODEX_WORKSPACE' environment variable being set
+# These indicators are used to determine if the script is running inside a Codex/RunPod cloud pod,
+# which may require specific setup steps and optimizations. If neither is present, the script assumes
+# it is running in a non-Codex environment and may adjust its behavior accordingly.
 if [ -d "/workspace" ] || [ -n "${CODEX_WORKSPACE:-}" ]; then
     echo_success "Codex environment detected"
     export IN_CODEX=true
