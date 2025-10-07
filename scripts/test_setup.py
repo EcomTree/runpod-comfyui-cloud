@@ -188,11 +188,11 @@ except Exception as e:
                     for entry in output.get('results', []):
                         # Extract filename from URL using urlparse - avoiding Path() on URLs
                         parsed_url = urlparse(entry['url'])
-                        url_name = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
+                        filename = parsed_url.path.rstrip('/').split('/')[-1] if parsed_url.path else 'unknown'
                         if entry['result'] == entry['expected']:
-                            print(f"✅ {url_name} -> {entry['result']}")
+                            print(f"✅ {filename} -> {entry['result']}")
                         else:
-                            print(f"❌ {url_name} -> {entry['result']} (expected: {entry['expected']})")
+                            print(f"❌ {filename} -> {entry['result']} (expected: {entry['expected']})")
                     print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
                 except Exception:
                     print(f"❌ Error parsing classification results: {result.stdout.strip()}")
@@ -204,8 +204,8 @@ except Exception as e:
                     for entry in output.get('results', []):
                         # Extract filename from URL using urlparse - avoiding Path() on URLs
                         parsed_url = urlparse(entry['url'])
-                        url_name = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
-                        print(f"✅ {url_name} -> {entry['result']}")
+                        filename = parsed_url.path.rstrip('/').split('/')[-1] if parsed_url.path else 'unknown'
+                        print(f"✅ {filename} -> {entry['result']}")
                     print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
                     return True  # Return True on success
                 except Exception:
