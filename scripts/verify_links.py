@@ -201,7 +201,17 @@ def main():
     print(f"🔍 Checking accessibility...")
 
     # Verify links (with rate limiting)
-    results = verify_links_parallel(links, max_workers=5)  # Fewer workers for polite requests
+    # Allow max_workers to be configured via environment variable
+    max_workers_env = os.getenv("MAX_WORKERS")
+    try:
+        max_workers = int(max_workers_env) if max_workers_env is not None else 5
+        if max_workers < 1:
+            print(f"⚠️  MAX_WORKERS must be >= 1, got {max_workers}. Defaulting to 5.")
+            max_workers = 5
+    except ValueError:
+        print(f"⚠️  Invalid MAX_WORKERS value: {max_workers_env}. Defaulting to 5.")
+        max_workers = 5
+    results = verify_links_parallel(links, max_workers=max_workers)  # Fewer workers for polite requests
 
     # Analyze results
     stats, valid_links, invalid_links = analyze_results(results)
