@@ -34,7 +34,7 @@ class ComfyUIModelDownloader:
         self.models_dir = self.base_dir / "ComfyUI" / "models"
         self.session = SESSION
 
-        # Erstelle Verzeichnisstruktur
+        # Create the directory structure
         self.create_directory_structure()
 
     def create_directory_structure(self):
@@ -75,47 +75,23 @@ class ComfyUIModelDownloader:
         """Determines the target directory based on URL and filename."""
         filename = Path(urlparse(url).path).name.lower()
 
-        # Mapping of patterns to directories
-        # IMPORTANT: Order matters! More specific patterns first, generic patterns last
-        mapping = {
-            # FLUX and other UNet Models (check before generic .safetensors)
-            'unet': ['flux', 'sd3', 'auraflow', 'hunyuan', 'kolors', 'lumina'],
+        # Ordered mapping of patterns to directories (more specific entries first)
+        mapping = [
+            ('unet', ['flux', 'sd3', 'auraflow', 'hunyuan', 'kolors', 'lumina']),
+            ('vae', ['vae', 'kl-f8-anime']),
+            ('clip_vision', ['clip_vision', 'image_encoder']),
+            ('clip', ['clip', 'open_clip']),
+            ('t5', ['t5', 'umt5']),
+            ('controlnet', ['controlnet', 'control_', 'canny', 'depth', 'openpose', 'scribble']),
+            ('loras', ['lora', '.lora']),
+            ('upscale_models', ['esrgan', 'realesrgan', 'swinir', '4x', '2x', 'upscale']),
+            ('animatediff_models', ['animatediff', 'mm_', 'motion']),
+            ('ipadapter', ['ip-adapter', 'ip_adapter']),
+            ('text_encoders', ['text_encoder', 'encoder']),
+            ('checkpoints', ['.ckpt', '.safetensors']),
+        ]
 
-            # VAE Models
-            'vae': ['vae', 'kl-f8-anime'],
-
-            # CLIP Encoder
-            'clip': ['clip', 'open_clip'],
-
-            # T5 Encoder
-            't5': ['t5', 'umt5'],
-
-            # CLIP Vision
-            'clip_vision': ['clip_vision', 'image_encoder'],
-
-            # ControlNet
-            'controlnet': ['controlnet', 'control_', 'canny', 'depth', 'openpose', 'scribble'],
-
-            # LoRAs (check before generic .safetensors)
-            'loras': ['lora', '.lora'],
-
-            # Upscaler
-            'upscale_models': ['esrgan', 'realesrgan', 'swinir', '4x', '2x', 'upscale'],
-
-            # AnimateDiff
-            'animatediff_models': ['animatediff', 'mm_', 'motion'],
-
-            # IP-Adapter
-            'ipadapter': ['ip-adapter', 'ip_adapter'],
-
-            # Text Encoders (general)
-            'text_encoders': ['text_encoder', 'encoder'],
-            
-            # Checkpoints (SD1.5, SDXL, etc.) - Generic extensions last!
-            'checkpoints': ['.ckpt', '.safetensors'],
-        }
-
-        for directory, patterns in mapping.items():
+        for directory, patterns in mapping:
             # Check if filename contains patterns or has specific extensions
             for pattern in patterns:
                 if pattern.startswith('.'):
@@ -132,15 +108,18 @@ class ComfyUIModelDownloader:
         target_path = Path(target_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Track progress output per download
+        last_reported = 0
+
         for attempt in range(retry_count):
             try:
                 print(f"⬇️  Downloading: {Path(url).name} (Attempt {attempt + 1}/{retry_count})")
 
-                # Stream download für große Dateien
+                # Stream download for large files
                 with self.session.get(url, stream=True, timeout=30) as response:
                     response.raise_for_status()
 
-                    # Hole Dateigröße für Fortschrittsanzeige
+                    # Retrieve file size for progress output
                     total_size = int(response.headers.get('content-length', 0))
 
                     with open(target_path, 'wb') as f:
@@ -151,9 +130,11 @@ class ComfyUIModelDownloader:
                                 downloaded += len(chunk)
 
                                 # Progress for large files
-                                if total_size > 0 and downloaded % (10 * 1024 * 1024) == 0:  # Every 10MB
-                                    progress = (downloaded / total_size) * 100
-                                    print(f"   📈 {progress:.1f}% ({downloaded / 1024 / 1024:.1f} MB)")
+                                if total_size > 0:
+                                    if downloaded - last_reported >= 10 * 1024 * 1024 or downloaded == total_size:
+                                        progress = (downloaded / total_size) * 100
+                                        print(f"   📈 {progress:.1f}% ({downloaded / 1024 / 1024:.1f} MB)")
+                                        last_reported = downloaded
 
                 print(f"✅ Successfully downloaded: {target_path}")
                 return True
@@ -186,9 +167,6 @@ class ComfyUIModelDownloader:
 
         successful = 0
         failed = 0
-
-        # Für einfachere parallele Downloads verwenden wir einen ThreadPool
-        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         def download_single_model(url):
             target_dir = self.determine_target_directory(url)
@@ -244,8 +222,8 @@ class ComfyUIModelDownloader:
                     model_info[category].append({
                         'filename': file,
                         'size_mb': round(size_mb, 2),
-                    'path': str(file_path.relative_to(self.base_dir))
-                })
+                        'path': str(file_path.relative_to(self.base_dir))
+                    })
 
         # Sort by category and filename
         for category in model_info:

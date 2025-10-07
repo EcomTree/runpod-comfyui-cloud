@@ -28,11 +28,11 @@ else:
 
 def extract_huggingface_links(content):
     """Extracts all Hugging Face links from the markdown content."""
-    # Regex für Hugging Face Links (https://huggingface.co/...)
+    # Regex for Hugging Face links (https://huggingface.co/...)
     hf_pattern = r'https://huggingface\.co/[^\s\)]+'
     links = re.findall(hf_pattern, content)
 
-    # Filtere nur echte Download-Links (safetensors, ckpt, etc.)
+    # Filter only actual download links (safetensors, ckpt, etc.)
     download_links = []
     for link in links:
         if any(ext in link.lower() for ext in ['.safetensors', '.ckpt', '.pth', '.bin', '.pt']):
@@ -43,13 +43,13 @@ def extract_huggingface_links(content):
 def check_link(link, timeout=10):
     """Checks a single link."""
     try:
-        # Entferne query parameters für saubere URL
+        # Remove query parameters for a clean URL
         clean_link = link.split('?')[0] if '?' in link else link
 
-        # HEAD request für schnellere Überprüfung
+        # HEAD request for faster verification
         response = SESSION.head(clean_link, timeout=timeout, allow_redirects=True)
 
-        # Für Hugging Face: 200, 302, 307 sind OK
+        # For Hugging Face: 200, 302, 307 are OK
         if response.status_code in [200, 302, 307]:
             return {
                 'link': link,
