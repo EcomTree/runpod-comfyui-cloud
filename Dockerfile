@@ -73,7 +73,7 @@ COPY scripts/verify_links.py scripts/download_models.py /workspace/scripts/
 # Create virtual environment for download scripts
 RUN cd /workspace && \
     python3 -m venv model_dl_venv && \
-    /workspace/model_dl_venv/bin/pip install --no-cache-dir requests
+    /workspace/model_dl_venv/bin/pip install --no-cache-dir requests==2.31.0
 
 # Create model download script (runs only when DOWNLOAD_MODELS=true)
 RUN <<EOF cat > /usr/local/bin/download_comfyui_models.sh
