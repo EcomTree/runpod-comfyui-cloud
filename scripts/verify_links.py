@@ -215,6 +215,9 @@ def main():
         if max_workers < 1:
             print(f"⚠️  MAX_WORKERS must be >= 1, got {max_workers}. Defaulting to 5.")
             max_workers = 5
+        elif max_workers > 32:
+            print(f"⚠️  MAX_WORKERS must be <= 32, got {max_workers}. Limiting to 32.")
+            max_workers = 32
     except ValueError:
         print(f"⚠️  Invalid MAX_WORKERS value: {max_workers_env}. Defaulting to 5.")
         max_workers = 5
