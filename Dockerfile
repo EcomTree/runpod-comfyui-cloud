@@ -91,10 +91,9 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     cd /workspace
 
     # Run model download in background with logging
-    # Export HF_TOKEN in the background subshell to ensure proper propagation
-    # Using export within the subshell is more reliable than passing via env
-    nohup bash -c '
-        export HF_TOKEN="'"${HF_TOKEN}"'"
+    # Using 'env' to explicitly pass HF_TOKEN to the background subshell
+    # This ensures the token is available even with special characters
+    env HF_TOKEN="${HF_TOKEN}" nohup bash -c '
         set -e
         
         # Activate virtual environment

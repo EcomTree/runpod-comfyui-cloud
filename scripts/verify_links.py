@@ -270,12 +270,13 @@ def main():
             output_file = Path('/workspace/link_verification_results.json')
         else:
             # Only check writability if directory exists
-            if not os.access(parent_dir, os.W_OK):
-                print(f"⚠️  Parent directory {parent_dir} is not writable. Using /workspace instead.")
+            try:
+                if not os.access(parent_dir, os.W_OK):
+                    print(f"⚠️  Parent directory {parent_dir} is not writable. Using /workspace instead.")
+                    output_file = Path('/workspace/link_verification_results.json')
+            except (OSError, PermissionError) as e:
+                print(f"⚠️  Cannot check write permissions for {parent_dir}: {e}. Using /workspace instead.")
                 output_file = Path('/workspace/link_verification_results.json')
-    except (OSError, PermissionError) as e:
-        print(f"⚠️  Filesystem error checking output path: {e}. Using /workspace instead.")
-        output_file = Path('/workspace/link_verification_results.json')
     except Exception as e:
         print(f"⚠️  Unexpected error checking output path: {e}. Using /workspace instead.")
         output_file = Path('/workspace/link_verification_results.json')
