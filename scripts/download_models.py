@@ -112,12 +112,15 @@ class ComfyUIModelDownloader:
         target_path = Path(target_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Track progress output per download
-        last_reported = 0
-
         for attempt in range(retry_count):
+            # Reset progress tracking for each attempt
+            last_reported = 0
+            
             try:
-                print(f"⬇️  Downloading: {Path(url).name} (Attempt {attempt + 1}/{retry_count})")
+                # Clean filename from URL (remove query parameters)
+                clean_url = url.split('?')[0]
+                filename = Path(urlparse(clean_url).path).name
+                print(f"⬇️  Downloading: {filename} (Attempt {attempt + 1}/{retry_count})")
 
                 # Stream download for large files
                 with self.session.get(url, stream=True, timeout=30) as response:
@@ -133,13 +136,16 @@ class ComfyUIModelDownloader:
                                 f.write(chunk)
                                 downloaded += len(chunk)
 
-                                # Progress for large files
+                                # Progress reporting
                                 if total_size > 0:
                                     report_threshold = PROGRESS_REPORT_INTERVAL_MB * 1024 * 1024
                                     if downloaded - last_reported >= report_threshold or downloaded == total_size:
                                         progress = (downloaded / total_size) * 100
                                         print(f"   📈 {progress:.1f}% ({downloaded / 1024 / 1024:.1f} MB)")
                                         last_reported = downloaded
+                                elif downloaded > 0:
+                                    # For files without content-length header
+                                    print(f"   📥 Downloaded: {downloaded / 1024 / 1024:.1f} MB")
 
                 print(f"✅ Successfully downloaded: {target_path}")
                 return True
@@ -173,13 +179,22 @@ class ComfyUIModelDownloader:
         failed = 0
 
         def download_single_model(url):
+            # Extract clean filename from URL
+            clean_url = url.split('?')[0]
+            filename = Path(urlparse(clean_url).path).name
+            
             target_dir = self.determine_target_directory(url)
-            target_path = self.models_dir / target_dir / Path(url).name
+            target_path = self.models_dir / target_dir / filename
 
-            # Skip if file already exists
+            # Check if file exists and has reasonable size (not just a partial download)
             if target_path.exists():
-                print(f"⏭️  Skipping (already exists): {target_path.name}")
-                return True
+                file_size = target_path.stat().st_size
+                if file_size > 1024:  # More than 1KB, assume it's valid
+                    print(f"⏭️  Skipping (already exists): {target_path.name} ({file_size / 1024 / 1024:.1f} MB)")
+                    return True
+                else:
+                    print(f"⚠️  Incomplete file detected, re-downloading: {target_path.name}")
+                    target_path.unlink()  # Delete incomplete file
 
             return self.download_file(url, target_path)
 

@@ -227,17 +227,27 @@ def main():
     print_report(stats, valid_links, invalid_links)
 
     # Save detailed results
-    # Save to script directory or /workspace if in Docker
+    # Try to save to script directory first, fallback to /workspace if not writable
     output_file = script_dir.parent / 'link_verification_results.json'
-    if not output_file.parent.exists():
+    
+    # Check if directory exists and is writable
+    try:
+        if not output_file.parent.exists() or not os.access(output_file.parent, os.W_OK):
+            output_file = Path('/workspace/link_verification_results.json')
+    except Exception:
         output_file = Path('/workspace/link_verification_results.json')
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump({
-            'stats': stats,
-            'valid_links': valid_links,
-            'invalid_links': invalid_links,
-            'timestamp': time.time()
-        }, f, indent=2, ensure_ascii=False)
+    
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump({
+                'stats': stats,
+                'valid_links': valid_links,
+                'invalid_links': invalid_links,
+                'timestamp': time.time()
+            }, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"❌ Failed to save results to {output_file}: {e}")
+        sys.exit(1)
 
     print(f"\n💾 Detailed results saved to: {output_file}")
 

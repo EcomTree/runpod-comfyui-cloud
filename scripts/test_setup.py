@@ -109,12 +109,20 @@ def test_model_classification():
         # Run the classification test in a subprocess to avoid dependency issues
         import subprocess
         import json
-        script = """
+        import tempfile
+        
+        # Write test script to temporary file to avoid quoting issues
+        test_script = '''
 import sys
 import json
-sys.path.append('scripts')
+import os
+
+# Ensure we can import from scripts directory
+sys.path.insert(0, os.path.join(os.getcwd(), "scripts"))
+
 try:
     from download_models import ComfyUIModelDownloader
+    
     test_cases = [
         ("https://example.com/flux1-dev.safetensors", "unet"),
         ("https://example.com/sd_xl_base_1.0.safetensors", "checkpoints"),
@@ -123,56 +131,91 @@ try:
         ("https://example.com/t5xxl_fp16.safetensors", "t5"),
         ("https://example.com/control_v11p_sd15_canny.pth", "controlnet"),
     ]
-    downloader = ComfyUIModelDownloader()
-    correct = 0
-    results = []
-    for url, expected in test_cases:
-        result = downloader.determine_target_directory(url)
-        results.append({'url': url, 'expected': expected, 'result': result})
-        if result == expected:
-            correct += 1
-    success_rate = (correct / len(test_cases)) * 100
-    print(json.dumps({'results': results, 'success_rate': success_rate}))
-    sys.exit(0 if success_rate >= 80 else 1)
+    
+    # Use a temporary directory that definitely exists
+    import tempfile
+    temp_dir = tempfile.mkdtemp()
+    
+    try:
+        downloader = ComfyUIModelDownloader(base_dir=temp_dir)
+        correct = 0
+        results = []
+        
+        for url, expected in test_cases:
+            result = downloader.determine_target_directory(url)
+            results.append({"url": url, "expected": expected, "result": result})
+            if result == expected:
+                correct += 1
+        
+        success_rate = (correct / len(test_cases)) * 100
+        print(json.dumps({"results": results, "success_rate": success_rate}))
+        sys.exit(0 if success_rate >= 80 else 1)
+    finally:
+        # Cleanup temp directory
+        import shutil
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        
 except Exception as e:
-    print(json.dumps({'error': str(e)}))
+    print(json.dumps({"error": str(e)}))
     sys.exit(2)
-"""
-        result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
-        if result.returncode == 2:
-            try:
-                error_info = json.loads(result.stdout)
-                print(f"❌ Error during classification: {error_info.get('error', 'Unknown error')}")
-            except Exception:
-                print(f"❌ Error during classification: {result.stdout.strip()}")
-            return False
-        elif result.returncode == 1:
-            try:
-                output = json.loads(result.stdout)
-                for entry in output.get('results', []):
-                    url_name = Path(entry['url']).name
-                    if entry['result'] == entry['expected']:
-                        print(f"✅ {url_name} -> {entry['result']}")
-                    else:
-                        print(f"❌ {url_name} -> {entry['result']} (expected: {entry['expected']})")
-                print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
-            except Exception:
-                print(f"❌ Error parsing classification results: {result.stdout.strip()}")
-            return False
-        elif result.returncode == 0:
-            try:
-                output = json.loads(result.stdout)
-                for entry in output.get('results', []):
-                    url_name = Path(entry['url']).name
-                    print(f"✅ {url_name} -> {entry['result']}")
-                print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
-            except Exception:
-                print(f"❌ Error parsing classification results: {result.stdout.strip()}")
+'''
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write(test_script)
+            script_path = f.name
+        
+        try:
+            result = subprocess.run(
+                [sys.executable, script_path],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 2:
+                try:
+                    error_info = json.loads(result.stdout)
+                    print(f"❌ Error during classification: {error_info.get('error', 'Unknown error')}")
+                except Exception:
+                    print(f"❌ Error during classification: {result.stdout.strip()}")
+                    if result.stderr:
+                        print(f"   stderr: {result.stderr.strip()}")
                 return False
-            return True
-        else:
-            print(f"❌ Unknown error during classification: {result.stdout.strip()}")
-            return False
+            elif result.returncode == 1:
+                try:
+                    output = json.loads(result.stdout)
+                    for entry in output.get('results', []):
+                        url_name = Path(entry['url']).name
+                        if entry['result'] == entry['expected']:
+                            print(f"✅ {url_name} -> {entry['result']}")
+                        else:
+                            print(f"❌ {url_name} -> {entry['result']} (expected: {entry['expected']})")
+                    print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
+                except Exception:
+                    print(f"❌ Error parsing classification results: {result.stdout.strip()}")
+                return False
+            elif result.returncode == 0:
+                try:
+                    output = json.loads(result.stdout)
+                    for entry in output.get('results', []):
+                        url_name = Path(entry['url']).name
+                        print(f"✅ {url_name} -> {entry['result']}")
+                    print(f"📊 Classification accuracy: {output.get('success_rate', 0):.1f}%")
+                except Exception:
+                    print(f"❌ Error parsing classification results: {result.stdout.strip()}")
+                    return False
+                return True
+            else:
+                print(f"❌ Unknown error during classification: {result.stdout.strip()}")
+                return False
+        finally:
+            # Clean up temp file
+            import os
+            try:
+                os.unlink(script_path)
+            except Exception:
+                pass
+                
     except Exception as e:
         print(f"❌ Error during classification: {e}")
         return False
