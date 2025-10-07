@@ -268,7 +268,7 @@ def main():
 
     # Start download
     start_time = time.time()
-    downloader.download_all_models(parallel_downloads=1)  # Sequential for stability
+    downloader.download_all_models()  # Sequential for stability
     download_time = time.time() - start_time
 
     # Create summary
