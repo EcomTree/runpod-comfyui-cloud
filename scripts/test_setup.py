@@ -96,7 +96,7 @@ def test_model_classification():
     print("🏷️  Testing model classification...")
 
     try:
-        # Test several example URLs
+        # Test several example URLs - this is the single source of truth for test cases
         test_cases = [
             ("https://example.com/flux1-dev.safetensors", "unet"),
             ("https://example.com/sd_xl_base_1.0.safetensors", "checkpoints"),
@@ -111,26 +111,25 @@ def test_model_classification():
         import json
         import tempfile
         
+        # Pass test cases to subprocess via JSON to avoid duplication
+        test_cases_json = json.dumps(test_cases)
+        
         # Write test script to temporary file to avoid quoting issues
-        test_script = '''
+        test_script = f'''
 import sys
 import json
 import os
 
-# Ensure we can import from scripts directory
-sys.path.insert(0, os.path.join(os.getcwd(), "scripts"))
+# Get test cases from parent process
+test_cases = json.loads('{test_cases_json}')
+
+# Use absolute path for more reliable imports
+script_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(script_dir)
+sys.path.insert(0, os.path.join(parent_dir, "scripts"))
 
 try:
     from download_models import ComfyUIModelDownloader
-    
-    test_cases = [
-        ("https://example.com/flux1-dev.safetensors", "unet"),
-        ("https://example.com/sd_xl_base_1.0.safetensors", "checkpoints"),
-        ("https://example.com/vae-ft-mse.safetensors", "vae"),
-        ("https://example.com/clip_l.safetensors", "clip"),
-        ("https://example.com/t5xxl_fp16.safetensors", "t5"),
-        ("https://example.com/control_v11p_sd15_canny.pth", "controlnet"),
-    ]
     
     # Use a temporary directory that definitely exists
     import tempfile
@@ -143,12 +142,12 @@ try:
         
         for url, expected in test_cases:
             result = downloader.determine_target_directory(url)
-            results.append({"url": url, "expected": expected, "result": result})
+            results.append({{"url": url, "expected": expected, "result": result}})
             if result == expected:
                 correct += 1
         
         success_rate = (correct / len(test_cases)) * 100
-        print(json.dumps({"results": results, "success_rate": success_rate}))
+        print(json.dumps({{"results": results, "success_rate": success_rate}}))
         sys.exit(0 if success_rate >= 80 else 1)
     finally:
         # Cleanup temp directory
@@ -156,7 +155,7 @@ try:
         shutil.rmtree(temp_dir, ignore_errors=True)
         
 except Exception as e:
-    print(json.dumps({"error": str(e)}))
+    print(json.dumps({{"error": str(e)}}))
     sys.exit(2)
 '''
         
