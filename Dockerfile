@@ -91,10 +91,13 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     cd /workspace
 
     # Run model download in background with logging
-    # Pass HF_TOKEN explicitly to the background process for reliable propagation
-    # Using env ensures the token is available regardless of shell quoting issues
-    env HF_TOKEN="${HF_TOKEN}" nohup bash -c '
+    # Export HF_TOKEN within the subshell for reliable propagation to child processes
+    # This ensures the token is available to all commands executed within the background job
+    nohup bash -c '
         set -e
+        
+        # Export HF_TOKEN for use within this subshell and all child processes
+        export HF_TOKEN="'"${HF_TOKEN}"'"
         
         # Activate virtual environment
         source model_dl_venv/bin/activate
