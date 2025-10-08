@@ -37,19 +37,20 @@ MODEL_CLASSIFICATION_MAPPING = [
     ('checkpoints', ['.ckpt', '.safetensors']),
 ]
 
-HF_TOKEN = os.getenv("HF_TOKEN")
+def setup_hf_session():
+    """Set up a requests.Session with Hugging Face token if available."""
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'ComfyUI-Model-Downloader/1.0'
+    })
+    hf_token = os.getenv("HF_TOKEN")
+    if hf_token:
+        session.headers['Authorization'] = f'Bearer {hf_token.strip()}'
+    else:
+        print("⚠️  No HF_TOKEN set. Protected Hugging Face downloads may fail.")
+    return session
 
-SESSION = requests.Session()
-SESSION.headers.update({
-    'User-Agent': 'ComfyUI-Model-Downloader/1.0'
-})
-
-if HF_TOKEN:
-    SESSION.headers['Authorization'] = f'Bearer {HF_TOKEN.strip()}'
-else:
-    print("⚠️  No HF_TOKEN set. Protected Hugging Face downloads may fail.")
-
-
+SESSION = setup_hf_session()
 class ComfyUIModelDownloader:
     def __init__(self, base_dir="/workspace", verification_file="link_verification_results.json"):
         self.base_dir = Path(base_dir)
