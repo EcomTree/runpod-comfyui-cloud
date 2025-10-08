@@ -195,7 +195,12 @@ def print_report(stats, valid_links, invalid_links):
         print(f"• {link}")
 
 def get_max_workers():
-    """Parse and validate MAX_WORKERS environment variable."""
+    """
+    Parse and validate MAX_WORKERS environment variable.
+
+    Returns:
+        int: Number of worker threads (1-32, default 5).
+    """
     max_workers_env = os.getenv("MAX_WORKERS")
     default_workers = 5
     max_allowed_workers = 32
