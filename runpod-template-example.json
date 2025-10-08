@@ -1,0 +1,70 @@
+{
+  "name": "ComfyUI H200 with Auto Model Download",
+  "description": "Optimized ComfyUI for NVIDIA H200 with automatic model download",
+  "version": "1.0.0",
+  "category": "AI/ML",
+  "gpuTypes": ["H200"],
+  "ports": [
+    {
+      "port": 8188,
+      "type": "http",
+      "label": "ComfyUI Web Interface"
+    },
+    {
+      "port": 8888,
+      "type": "http",
+      "label": "Jupyter Lab"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "DOWNLOAD_MODELS",
+      "value": "true",
+      "description": "Enable automatic download of all ComfyUI models on startup"
+    },
+    {
+      "key": "HF_TOKEN",
+      "value": "",
+      "description": "Optional: Hugging Face token for private model downloads"
+    }
+  ],
+  "volumeSize": 500,
+  "volumePath": "/workspace",
+  "containerDiskInGb": 10,
+  "startCommand": "/bin/bash -c \"/usr/local/bin/start_comfyui_h200.sh || (echo 'ComfyUI failed to start, keeping container alive for debugging...' && tail -f /dev/null)\"",
+  "buildCommand": "docker build -t comfyui-h200-models .",
+  "requirements": {
+    "minGpuMemory": 24,
+    "recommendedGpuMemory": 48,
+    "minStorage": 500,
+    "networkAccess": true,
+    "persistentStorage": true
+  },
+  "features": [
+    "ComfyUI Web Interface",
+    "Jupyter Lab Integration",
+    "H200 GPU Optimization",
+    "Automatic Model Download",
+    "Complete Model Library",
+    "Model Organization",
+    "Download Resume",
+    "Link Verification"
+  ],
+  "author": "Sebastian",
+  "license": "MIT",
+  "repository": "https://github.com/EcomTree/runpod-comfyui-cloud",
+  "modelDocumentation": "README_MODELS.md",
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2025-10-07",
+      "changes": [
+        "Added automatic model download feature",
+        "Integrated link verification system",
+        "Added model organization and categorization",
+        "Implemented retry logic for failed downloads",
+        "Added comprehensive model library documentation"
+      ]
+    }
+  ]
+}
