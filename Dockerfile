@@ -97,7 +97,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
         set -e
         
         # Export HF_TOKEN for use within this subshell and all child processes
-        export HF_TOKEN="'"${HF_TOKEN}"'"
+        export HF_TOKEN="${HF_TOKEN}"
         
         # Activate virtual environment
         source model_dl_venv/bin/activate
