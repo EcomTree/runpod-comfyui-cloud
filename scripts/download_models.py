@@ -51,6 +51,15 @@ def setup_hf_session():
     return session
 
 SESSION = setup_hf_session()
+
+# Codex Environment Detection:
+# A 'Codex environment' is typically identified by either:
+#   1. The presence of the '/workspace' directory (used in Codex/RunPod cloud pods)
+#   2. The 'CODEX_WORKSPACE' environment variable being set
+# These indicators are used to determine if the script is running inside a Codex/RunPod cloud pod,
+# which may require specific setup steps and optimizations. If neither is present, the script assumes
+# it is running in a non-Codex environment and may adjust its behavior accordingly.
+
 class ComfyUIModelDownloader:
     def __init__(self, base_dir="/workspace", verification_file="link_verification_results.json"):
         self.base_dir = Path(base_dir)
