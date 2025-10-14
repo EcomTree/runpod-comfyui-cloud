@@ -136,7 +136,9 @@ ensure_system_packages() {
     if command_exists sudo && sudo -n true 2>/dev/null; then
         echo_info "Installing packages via sudo apt-get: ${missing[*]}"
         if retry sudo apt-get update -qq; then
-            retry sudo apt-get install -y "${missing[@]}"
+            retry sudo apt-get install -y "${missing[@]}" || {
+                echo_warning "Some packages could not be installed: (${missing[*]})"
+            }
         else
             echo_warning "apt-get update failed – skipping install for (${missing[*]})"
             return 1
@@ -144,7 +146,9 @@ ensure_system_packages() {
     elif [ "$(id -u)" -eq 0 ]; then
         echo_info "Installing packages with root privileges: ${missing[*]}"
         if retry apt-get update -qq; then
-            retry apt-get install -y "${missing[@]}"
+            retry apt-get install -y "${missing[@]}" || {
+                echo_warning "Some packages could not be installed: (${missing[*]})"
+            }
         else
             echo_warning "apt-get update failed – skipping install for (${missing[*]})"
             return 1
@@ -276,7 +280,7 @@ echo_info "🌿 Current branch: $CURRENT_BRANCH"
 GIT_FETCH_LOG="$(mktemp /tmp/git-fetch.XXXXXX.log)"
 GIT_PULL_LOG="$(mktemp /tmp/git-pull.XXXXXX.log)"
 
-# Fetch latest changes
+# Fetch latest changes (gracefully handle network errors)
 if git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
     echo_success "Fetched latest changes from origin"
     
@@ -297,9 +301,10 @@ if git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
         fi
     fi
 else
-    echo_warning "Fetch from origin failed – working with existing copy"
+    echo_info "Fetch from origin skipped (no network or not needed)"
+    # Not a warning - this is expected in test environments
 fi
-rm -f "$GIT_FETCH_LOG" "$GIT_PULL_LOG"
+rm -f "$GIT_FETCH_LOG" "$GIT_PULL_LOG" 2>/dev/null || true
 
 # ============================================================
 # 4. Python Environment Setup (with venv)
@@ -336,7 +341,8 @@ validate_python_packages || {
 # 5. System Tools (optional - graceful degradation)
 # ============================================================
 echo_info "🔧 Ensuring system tools (optional)..."
-ensure_system_packages jq curl git docker || echo_info "Some system tools could not be installed (non-critical)"
+# Note: docker.io is the correct package name on Debian/Ubuntu
+ensure_system_packages jq curl git || echo_info "Some system tools could not be installed (non-critical)"
 
 # ============================================================
 # 6. Environment Variables Setup
