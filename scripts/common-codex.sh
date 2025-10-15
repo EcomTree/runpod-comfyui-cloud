@@ -22,11 +22,11 @@ if [[ -z "${CODEX_COMMON_HELPERS_LOADED:-}" ]]; then
     }
 
     echo_warning() {
-        echo -e "${YELLOW}⚠️  $1${NC}"
+        echo -e "${YELLOW}⚠️  $1${NC}" >&2
     }
 
     echo_error() {
-        echo -e "${RED}❌ $1${NC}"
+        echo -e "${RED}❌ $1${NC}" >&2
     }
 
     # Check if command exists

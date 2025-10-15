@@ -15,8 +15,38 @@ if [ -f "$COMMON_HELPERS" ]; then
     # shellcheck disable=SC1090
     source "$COMMON_HELPERS"
 else
-    echo "Missing helper script: $COMMON_HELPERS" >&2
-    exit 1
+    # Fallback: Try to download helper from repository if not present
+    echo "⚠️  Missing helper script: $COMMON_HELPERS" >&2
+    echo "ℹ️  Attempting to download from repository..." >&2
+    
+    HELPER_URL="https://raw.githubusercontent.com/EcomTree/runpod-comfyui-cloud/main/scripts/common-codex.sh"
+    mkdir -p "${SCRIPT_DIR}/scripts"
+    
+    if command -v curl >/dev/null 2>&1; then
+        if curl -fsSL "$HELPER_URL" -o "$COMMON_HELPERS" 2>/dev/null; then
+            echo "✅ Helper script downloaded successfully" >&2
+            # shellcheck disable=SC1090
+            source "$COMMON_HELPERS"
+        else
+            echo "❌ Failed to download helper script from $HELPER_URL" >&2
+            echo "ℹ️  Please ensure the repository is cloned or the helper script exists" >&2
+            exit 1
+        fi
+    elif command -v wget >/dev/null 2>&1; then
+        if wget -qO "$COMMON_HELPERS" "$HELPER_URL" 2>/dev/null; then
+            echo "✅ Helper script downloaded successfully" >&2
+            # shellcheck disable=SC1090
+            source "$COMMON_HELPERS"
+        else
+            echo "❌ Failed to download helper script from $HELPER_URL" >&2
+            echo "ℹ️  Please ensure the repository is cloned or the helper script exists" >&2
+            exit 1
+        fi
+    else
+        echo "❌ Neither curl nor wget available to download helper script" >&2
+        echo "ℹ️  Please install curl or wget, or clone the full repository" >&2
+        exit 1
+    fi
 fi
 
 # Detect Codex environment early
@@ -183,7 +213,7 @@ elif [ ! -d "$REPO_DIR" ]; then
 echo_info "📦 Cloning repository..."
 GIT_CLONE_LOG="$(mktemp /tmp/git-clone.XXXXXX.log)"
 # Use timeout and shallow clone for faster operation with retries
-if retry timeout 60s git clone --depth 1 https://github.com/EcomTree/runpod-comfyui-cloud.git "$REPO_DIR" >"$GIT_CLONE_LOG" 2>&1; then
+if retry bash -c "timeout 60s git clone --depth 1 https://github.com/EcomTree/runpod-comfyui-cloud.git '$REPO_DIR' >'$GIT_CLONE_LOG' 2>&1"; then
     rm -f "$GIT_CLONE_LOG"
     cd "$REPO_DIR"
     echo_success "Repository cloned"
@@ -217,7 +247,7 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 
     # Fetch latest changes (gracefully handle network errors)
     # Add timeout to prevent hanging on network issues
-    if retry timeout 30s git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
+    if retry bash -c "timeout 30s git fetch origin >'$GIT_FETCH_LOG' 2>&1"; then
         echo_success "Fetched latest changes from origin"
         
         # Try to update current branch if tracking remote
@@ -227,7 +257,7 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         else
             # Only pull if we have a tracking branch
             if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-                if retry timeout 30s git pull --ff-only >"$GIT_PULL_LOG" 2>&1; then
+                if retry bash -c "timeout 30s git pull --ff-only >'$GIT_PULL_LOG' 2>&1"; then
                     echo_success "Branch $CURRENT_BRANCH successfully updated"
                 else
                     echo_info "Could not fast-forward – manual merge may be needed"
