@@ -13,8 +13,14 @@ if [ -n "${CODEX_CONTAINER:-}" ] || [ -n "${RUNPOD_POD_ID:-}" ]; then
     sleep 2
 fi
 
-set -Eeuo pipefail
-trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
+# Use strict mode but be more lenient in Codex environments
+if [ -n "${CODEX_CONTAINER:-}" ] || [ -n "${RUNPOD_POD_ID:-}" ] || [ -d "/workspace" ]; then
+    set -Euo pipefail
+    trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
+else
+    set -Eeuo pipefail
+    trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
+fi
 
 # Colors for better readability
 GREEN='\033[0;32m'
@@ -279,11 +285,11 @@ elif [ ! -d "$REPO_DIR" ]; then
             echo_warning "Details:" && cat "$GIT_CLONE_LOG"
         fi
         rm -f "$GIT_CLONE_LOG"
-        # Exit unless in container mode
-        if [ "$CONTAINER_MODE" != "true" ]; then
+        # Exit unless in container mode or Codex environment
+        if [ "$CONTAINER_MODE" != "true" ] && [ "$IN_CODEX" != "true" ]; then
             exit 1
         fi
-        echo_warning "Continuing without repository (container mode)"
+        echo_warning "Continuing without repository (container/Codex mode)"
     fi
 elif [ -d "$REPO_DIR" ]; then
     echo_warning "Repository already exists, skipping clone"
