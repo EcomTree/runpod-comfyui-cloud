@@ -279,12 +279,11 @@ elif [ ! -d "$REPO_DIR" ]; then
             echo_warning "Details:" && cat "$GIT_CLONE_LOG"
         fi
         rm -f "$GIT_CLONE_LOG"
-        # In container mode, continue anyway
-        if [ "$CONTAINER_MODE" = true ]; then
-            echo_warning "Continuing without repository (container mode)"
-        else
+        # Exit unless in container mode
+        if [ "$CONTAINER_MODE" != true ]; then
             exit 1
         fi
+        echo_warning "Continuing without repository (container mode)"
     fi
 elif [ -d "$REPO_DIR" ]; then
     echo_warning "Repository already exists, skipping clone"
@@ -294,38 +293,43 @@ fi
 # ============================================================
 # 3. Git Branch Management
 # ============================================================
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
-echo_info "🌿 Current branch: $CURRENT_BRANCH"
+# Only run git commands if we're actually in a git repository
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+    echo_info "🌿 Current branch: $CURRENT_BRANCH"
 
-GIT_FETCH_LOG="$(mktemp /tmp/git-fetch.XXXXXX.log)"
-GIT_PULL_LOG="$(mktemp /tmp/git-pull.XXXXXX.log)"
+    GIT_FETCH_LOG="$(mktemp /tmp/git-fetch.XXXXXX.log)"
+    GIT_PULL_LOG="$(mktemp /tmp/git-pull.XXXXXX.log)"
 
-# Fetch latest changes (gracefully handle network errors)
-# Add timeout to prevent hanging on network issues
-if timeout 30s git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
-    echo_success "Fetched latest changes from origin"
-    
-    # Try to update current branch if tracking remote
-    if git status --short --porcelain | grep -q ""; then
-        echo_warning "Local changes present – skipping git pull"
-        echo_info "Run 'git status' to see changes"
-    else
-        # Only pull if we have a tracking branch
-        if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-            if timeout 30s git pull --ff-only >"$GIT_PULL_LOG" 2>&1; then
-                echo_success "Branch $CURRENT_BRANCH successfully updated"
-            else
-                echo_info "Could not fast-forward – manual merge may be needed"
-            fi
+    # Fetch latest changes (gracefully handle network errors)
+    # Add timeout to prevent hanging on network issues
+    if timeout 30s git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
+        echo_success "Fetched latest changes from origin"
+        
+        # Try to update current branch if tracking remote
+        if git status --short --porcelain | grep -q ""; then
+            echo_warning "Local changes present – skipping git pull"
+            echo_info "Run 'git status' to see changes"
         else
-            echo_info "No upstream tracking branch configured"
+            # Only pull if we have a tracking branch
+            if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+                if timeout 30s git pull --ff-only >"$GIT_PULL_LOG" 2>&1; then
+                    echo_success "Branch $CURRENT_BRANCH successfully updated"
+                else
+                    echo_info "Could not fast-forward – manual merge may be needed"
+                fi
+            else
+                echo_info "No upstream tracking branch configured"
+            fi
         fi
+    else
+        echo_info "Fetch from origin skipped (no network or not needed)"
+        # Not a warning - this is expected in test environments
     fi
+    rm -f "$GIT_FETCH_LOG" "$GIT_PULL_LOG"
 else
-    echo_info "Fetch from origin skipped (no network or not needed)"
-    # Not a warning - this is expected in test environments
+    echo_info "🌿 Not in a git repository – skipping git branch management"
 fi
-rm -f "$GIT_FETCH_LOG" "$GIT_PULL_LOG"
 # ============================================================
 # 4. Python Environment Setup (with venv)
 # ============================================================

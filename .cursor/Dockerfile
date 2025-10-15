@@ -12,14 +12,10 @@ LABEL description="Development environment for ComfyUI RunPod project with Backg
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WORKSPACE=/home/ubuntu
 
-# Create non-root user (Best Practice for Background Agents)
-RUN useradd -m -s /bin/bash ubuntu && \
-    usermod -aG sudo ubuntu && \
-    echo "ubuntu ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-# Install essential development tools
+# Install essential development tools (including sudo before user creation)
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y \
+    sudo \
     git \
     wget \
     curl \
@@ -35,6 +31,11 @@ RUN apt-get update && apt-get upgrade -y && \
     rsync \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Create non-root user (Best Practice for Background Agents)
+RUN useradd -m -s /bin/bash ubuntu && \
+    usermod -aG sudo ubuntu && \
+    echo "ubuntu ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Install Python development dependencies
 RUN pip install --no-cache-dir \
