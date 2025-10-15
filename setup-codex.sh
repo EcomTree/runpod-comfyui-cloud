@@ -342,7 +342,6 @@ validate_python_packages || {
 # 5. System Tools (optional - graceful degradation)
 # ============================================================
 echo_info "🔧 Ensuring system tools (optional)..."
-# Note: docker.io is the correct package name on Debian/Ubuntu
 ensure_system_packages jq curl git || echo_info "Some system tools could not be installed (non-critical)"
 
 # ============================================================
