@@ -7,14 +7,26 @@
 # Version: 4.1 (ComfyUI Cloud Pod Edition)
 #
 
+# Codex Environment Detection:
+# A 'Codex environment' is typically identified by either:
+#   1. The presence of the '/workspace' directory (standard in Codex/RunPod cloud pods)
+#   2. The 'CODEX_CONTAINER' or 'RUNPOD_POD_ID' environment variables being set
+#   3. The 'CODEX_WORKSPACE' environment variable being set
+# These indicators determine if the script is running inside a Codex/RunPod cloud pod.
+if [ -n "${CODEX_CONTAINER:-}" ] || [ -n "${RUNPOD_POD_ID:-}" ] || [ -n "${CODEX_WORKSPACE:-}" ] || [ -d "/workspace" ]; then
+    export IN_CODEX=true
+else
+    export IN_CODEX=false
+fi
+
 # Add connection stability check
-if [ -n "${CODEX_CONTAINER:-}" ] || [ -n "${RUNPOD_POD_ID:-}" ]; then
+if [ "$IN_CODEX" = true ]; then
     echo "🔄 Waiting for stable connection..."
     sleep 2
 fi
 
 # Use strict mode but be more lenient in Codex environments
-if [ -n "${CODEX_CONTAINER:-}" ] || [ -n "${RUNPOD_POD_ID:-}" ] || [ -d "/workspace" ]; then
+if [ "$IN_CODEX" = true ]; then
     set -Euo pipefail
     trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
 else
@@ -219,20 +231,11 @@ fi
 # ============================================================
 echo_info "🔍 Running pre-flight checks..."
 
-# Codex Environment Detection:
-# A 'Codex environment' is typically identified by either:
-#   1. The presence of the '/workspace' directory (standard in Codex/RunPod cloud pods)
-#   2. The 'CODEX_WORKSPACE' environment variable being set
-# These indicators determine if the script is running inside a Codex/RunPod cloud pod,
-# which requires specific setup steps and optimizations (GPU configuration, network volumes,
-# port mappings for ComfyUI/Jupyter). If neither is present, the script assumes a local
-# development environment and may adjust its behavior accordingly.
-if [ -d "/workspace" ] || [ -n "${CODEX_WORKSPACE:-}" ]; then
+# Codex environment already detected at script start
+if [ "$IN_CODEX" = true ]; then
     echo_success "Codex environment detected"
-    export IN_CODEX=true
 else
     echo_warning "Not in typical Codex environment - some features may differ"
-    export IN_CODEX=false
 fi
 
 # Check Python version
