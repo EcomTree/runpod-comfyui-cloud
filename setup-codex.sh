@@ -7,18 +7,47 @@
 # Version: 4.1 (ComfyUI Cloud Pod Edition)
 #
 
-# Function: Check if running in Codex environment
-# A 'Codex environment' is typically identified by either:
-#   1. The presence of the '/workspace' directory (standard in Codex/RunPod cloud pods)
-#   2. The 'CODEX_CONTAINER' or 'RUNPOD_POD_ID' environment variables being set
-#   3. The 'CODEX_WORKSPACE' environment variable being set
-# These indicators determine if the script is running inside a Codex/RunPod cloud pod.
-is_codex_environment() {
-    [ -n "${CODEX_CONTAINER:-}" ] || \
-    [ -n "${RUNPOD_POD_ID:-}" ] || \
-    [ -n "${CODEX_WORKSPACE:-}" ] || \
-    [ -d "/workspace" ]
-}
+# Resolve script directory and load shared helpers
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMMON_HELPERS="${SCRIPT_DIR}/scripts/common-codex.sh"
+
+if [ -f "$COMMON_HELPERS" ]; then
+    # shellcheck disable=SC1090
+    source "$COMMON_HELPERS"
+else
+    # Fallback: Try to download helper from repository if not present
+    echo "⚠️  Missing helper script: $COMMON_HELPERS" >&2
+    echo "ℹ️  Attempting to download from repository..." >&2
+    
+    HELPER_URL="https://raw.githubusercontent.com/EcomTree/runpod-comfyui-cloud/main/scripts/common-codex.sh"
+    mkdir -p "${SCRIPT_DIR}/scripts"
+    
+    if command -v curl >/dev/null 2>&1; then
+        if curl -fsSL "$HELPER_URL" -o "$COMMON_HELPERS" 2>/dev/null; then
+            echo "✅ Helper script downloaded successfully" >&2
+            # shellcheck disable=SC1090
+            source "$COMMON_HELPERS"
+        else
+            echo "❌ Failed to download helper script from $HELPER_URL" >&2
+            echo "ℹ️  Please ensure the repository is cloned or the helper script exists" >&2
+            exit 1
+        fi
+    elif command -v wget >/dev/null 2>&1; then
+        if wget -qO "$COMMON_HELPERS" "$HELPER_URL" 2>/dev/null; then
+            echo "✅ Helper script downloaded successfully" >&2
+            # shellcheck disable=SC1090
+            source "$COMMON_HELPERS"
+        else
+            echo "❌ Failed to download helper script from $HELPER_URL" >&2
+            echo "ℹ️  Please ensure the repository is cloned or the helper script exists" >&2
+            exit 1
+        fi
+    else
+        echo "❌ Neither curl nor wget available to download helper script" >&2
+        echo "ℹ️  Please install curl or wget, or clone the full repository" >&2
+        exit 1
+    fi
+fi
 
 # Detect Codex environment early
 if is_codex_environment; then
@@ -29,7 +58,7 @@ fi
 
 # Add connection stability check
 if [ "$IN_CODEX" = true ]; then
-    echo "🔄 Waiting for stable connection..."
+    echo_info "🔄 Waiting for stable connection..."
     sleep 2
 fi
 
@@ -43,29 +72,6 @@ else
     set -Eeuo pipefail
     trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
 fi
-
-# Colors for better readability
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-
-echo_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
-}
-
-echo_success() {
-    echo -e "${GREEN}✅ $1${NC}"
-}
-
-echo_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
-}
-
-echo_error() {
-    echo -e "${RED}❌ $1${NC}"
-}
 
 # Optional Logging
 if [[ -n "${LOG_FILE:-}" ]]; then
@@ -82,37 +88,12 @@ PYTHON_CMD=python3
 PYTHON_PACKAGES=("requests")
 PYTHON_IMPORT_NAMES=("requests")
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_BASENAME="runpod-comfyui-cloud"
 if [[ "$(basename "$SCRIPT_DIR")" == "$REPO_BASENAME" ]]; then
     PREEXISTING_REPO=true
 else
     PREEXISTING_REPO=false
 fi
-
-# Function: Check if command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Retry helper for flaky commands
-retry() {
-    local attempt=1
-    local exit_code=0
-
-    while true; do
-        "$@" && return 0
-        exit_code=$?
-
-        if (( attempt >= RETRY_ATTEMPTS )); then
-            return "$exit_code"
-        fi
-
-        echo_warning "Attempt ${attempt}/${RETRY_ATTEMPTS} failed – retrying in ${RETRY_DELAY}s"
-        sleep "$RETRY_DELAY"
-        attempt=$((attempt + 1))
-    done
-}
 
 # Function: Check Python version
 check_python_version() {
@@ -143,62 +124,6 @@ check_python_version() {
 
     echo_success "Python version check passed"
     return 0
-}
-
-# Function: Ensure system packages
-ensure_system_packages() {
-    local packages=("$@")
-    local missing=()
-
-    for pkg in "${packages[@]}"; do
-        if command_exists "$pkg"; then
-            echo_success "$pkg available"
-        else
-            missing+=("$pkg")
-        fi
-    done
-
-    if (( ${#missing[@]} == 0 )); then
-        return 0
-    fi
-
-    if ! command_exists apt-get; then
-        echo_warning "apt-get not available – skipping install for (${missing[*]})"
-        return 1
-    fi
-
-    if command_exists sudo && sudo -n true 2>/dev/null; then
-        echo_info "Installing packages via sudo apt-get: ${missing[*]}"
-        if retry sudo apt-get update -qq; then
-            retry sudo apt-get install -y "${missing[@]}" || {
-                echo_warning "Some packages could not be installed: (${missing[*]})"
-            }
-        else
-            echo_warning "apt-get update failed – skipping install for (${missing[*]})"
-            return 1
-        fi
-    elif [ "$(id -u)" -eq 0 ]; then
-        echo_info "Installing packages with root privileges: ${missing[*]}"
-        if retry apt-get update -qq; then
-            retry apt-get install -y "${missing[@]}" || {
-                echo_warning "Some packages could not be installed: (${missing[*]})"
-            }
-        else
-            echo_warning "apt-get update failed – skipping install for (${missing[*]})"
-            return 1
-        fi
-    else
-        echo_warning "No sudo privileges – cannot install packages (${missing[*]})"
-        return 1
-    fi
-
-    for pkg in "${missing[@]}"; do
-        if command_exists "$pkg"; then
-            echo_success "$pkg installed"
-        else
-            echo_warning "$pkg installation failed"
-        fi
-    done
 }
 
 # Function to validate Python package installation
@@ -285,25 +210,25 @@ if $PREEXISTING_REPO; then
     echo_info "📦 Existing repository detected at $REPO_DIR"
     cd "$REPO_DIR"
 elif [ ! -d "$REPO_DIR" ]; then
-    echo_info "📦 Cloning repository..."
-    GIT_CLONE_LOG="$(mktemp /tmp/git-clone.XXXXXX.log)"
-    # Use timeout and shallow clone for faster operation
-    if timeout 60s git clone --depth 1 https://github.com/EcomTree/runpod-comfyui-cloud.git "$REPO_DIR" >"$GIT_CLONE_LOG" 2>&1; then
-        rm -f "$GIT_CLONE_LOG"
-        cd "$REPO_DIR"
-        echo_success "Repository cloned"
-    else
-        echo_error "Git clone failed"
-        if [ -s "$GIT_CLONE_LOG" ]; then
-            echo_warning "Details:" && cat "$GIT_CLONE_LOG"
-        fi
-        rm -f "$GIT_CLONE_LOG"
-        # Exit unless in container mode or Codex environment
-        if [ "$CONTAINER_MODE" != "true" ] && [ "$IN_CODEX" != "true" ]; then
-            exit 1
-        fi
-        echo_warning "Continuing without repository (container/Codex mode)"
+echo_info "📦 Cloning repository..."
+GIT_CLONE_LOG="$(mktemp /tmp/git-clone.XXXXXX.log)"
+# Use timeout and shallow clone for faster operation with retries
+if retry bash -c "timeout 60s git clone --depth 1 https://github.com/EcomTree/runpod-comfyui-cloud.git \"$REPO_DIR\"" >"$GIT_CLONE_LOG" 2>&1; then
+    rm -f "$GIT_CLONE_LOG"
+    cd "$REPO_DIR"
+    echo_success "Repository cloned"
+else
+    echo_error "Git clone failed"
+    if [ -s "$GIT_CLONE_LOG" ]; then
+        echo_warning "Details:" && cat "$GIT_CLONE_LOG"
     fi
+    rm -f "$GIT_CLONE_LOG"
+    # Exit unless in container mode or Codex environment
+    if [ "$CONTAINER_MODE" != "true" ] && [ "$IN_CODEX" != "true" ]; then
+        exit 1
+    fi
+    echo_warning "Continuing without repository (container/Codex mode)"
+fi
 elif [ -d "$REPO_DIR" ]; then
     echo_warning "Repository already exists, skipping clone"
     cd "$REPO_DIR"
@@ -322,7 +247,7 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 
     # Fetch latest changes (gracefully handle network errors)
     # Add timeout to prevent hanging on network issues
-    if timeout 30s git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
+    if retry bash -c "timeout 30s git fetch origin" >"$GIT_FETCH_LOG" 2>&1; then
         echo_success "Fetched latest changes from origin"
         
         # Try to update current branch if tracking remote
@@ -332,7 +257,7 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         else
             # Only pull if we have a tracking branch
             if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-                if timeout 30s git pull --ff-only >"$GIT_PULL_LOG" 2>&1; then
+                if retry bash -c "timeout 30s git pull --ff-only" >"$GIT_PULL_LOG" 2>&1; then
                     echo_success "Branch $CURRENT_BRANCH successfully updated"
                 else
                     echo_info "Could not fast-forward – manual merge may be needed"
