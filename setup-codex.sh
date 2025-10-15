@@ -7,13 +7,21 @@
 # Version: 4.1 (ComfyUI Cloud Pod Edition)
 #
 
-# Codex Environment Detection:
+# Function: Check if running in Codex environment
 # A 'Codex environment' is typically identified by either:
 #   1. The presence of the '/workspace' directory (standard in Codex/RunPod cloud pods)
 #   2. The 'CODEX_CONTAINER' or 'RUNPOD_POD_ID' environment variables being set
 #   3. The 'CODEX_WORKSPACE' environment variable being set
 # These indicators determine if the script is running inside a Codex/RunPod cloud pod.
-if [ -n "${CODEX_CONTAINER:-}" ] || [ -n "${RUNPOD_POD_ID:-}" ] || [ -n "${CODEX_WORKSPACE:-}" ] || [ -d "/workspace" ]; then
+is_codex_environment() {
+    [ -n "${CODEX_CONTAINER:-}" ] || \
+    [ -n "${RUNPOD_POD_ID:-}" ] || \
+    [ -n "${CODEX_WORKSPACE:-}" ] || \
+    [ -d "/workspace" ]
+}
+
+# Detect Codex environment early
+if is_codex_environment; then
     export IN_CODEX=true
 else
     export IN_CODEX=false
@@ -25,7 +33,9 @@ if [ "$IN_CODEX" = true ]; then
     sleep 2
 fi
 
-# Use strict mode but be more lenient in Codex environments
+# Use strict mode, but in Codex environments use only a single '-e' flag.
+# This makes error handling slightly more predictable in containerized environments,
+# as duplicate '-e' flags have no effect in bash, but the single flag avoids subtle issues.
 if [ "$IN_CODEX" = true ]; then
     set -Euo pipefail
     trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
