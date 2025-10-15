@@ -4,8 +4,14 @@
 # This script sets up the Codex environment for ComfyUI development
 # with improved error handling, validation, and Codex-specific optimizations
 #
-# Version: 4.0 (ComfyUI Cloud Pod Edition)
+# Version: 4.1 (ComfyUI Cloud Pod Edition)
 #
+
+# Add connection stability check
+if [ -n "${CODEX_CONTAINER:-}" ] || [ -n "${RUNPOD_POD_ID:-}" ]; then
+    echo "🔄 Waiting for stable connection..."
+    sleep 2
+fi
 
 set -Eeuo pipefail
 trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
@@ -192,7 +198,15 @@ validate_python_packages() {
 }
 
 echo_info "🚀 Starting Codex environment setup for RunPod ComfyUI Cloud Pod..."
-echo_info "📝 Script Version: 4.0 (ComfyUI Cloud Pod Edition)"
+echo_info "📝 Script Version: 4.1 (ComfyUI Cloud Pod Edition)"
+
+# Check if we're in a test/container environment
+if [ -f "/.dockerenv" ] || [ -n "${CONTAINER_ID:-}" ] || [ -n "${RUNPOD_TEST:-}" ]; then
+    echo_warning "📦 Running in container/test environment - some features may be limited"
+    export CONTAINER_MODE=true
+else
+    export CONTAINER_MODE=false
+fi
 
 # ============================================================
 # 0. Pre-flight Checks
@@ -254,7 +268,8 @@ if $PREEXISTING_REPO; then
 elif [ ! -d "$REPO_DIR" ]; then
     echo_info "📦 Cloning repository..."
     GIT_CLONE_LOG="$(mktemp /tmp/git-clone.XXXXXX.log)"
-    if git clone https://github.com/EcomTree/runpod-comfyui-cloud.git "$REPO_DIR" >"$GIT_CLONE_LOG" 2>&1; then
+    # Use timeout and shallow clone for faster operation
+    if timeout 60s git clone --depth 1 https://github.com/EcomTree/runpod-comfyui-cloud.git "$REPO_DIR" >"$GIT_CLONE_LOG" 2>&1; then
         rm -f "$GIT_CLONE_LOG"
         cd "$REPO_DIR"
         echo_success "Repository cloned"
@@ -264,7 +279,12 @@ elif [ ! -d "$REPO_DIR" ]; then
             echo_warning "Details:" && cat "$GIT_CLONE_LOG"
         fi
         rm -f "$GIT_CLONE_LOG"
-        exit 1
+        # In container mode, continue anyway
+        if [ "$CONTAINER_MODE" = true ]; then
+            echo_warning "Continuing without repository (container mode)"
+        else
+            exit 1
+        fi
     fi
 elif [ -d "$REPO_DIR" ]; then
     echo_warning "Repository already exists, skipping clone"
@@ -281,7 +301,8 @@ GIT_FETCH_LOG="$(mktemp /tmp/git-fetch.XXXXXX.log)"
 GIT_PULL_LOG="$(mktemp /tmp/git-pull.XXXXXX.log)"
 
 # Fetch latest changes (gracefully handle network errors)
-if git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
+# Add timeout to prevent hanging on network issues
+if timeout 30s git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
     echo_success "Fetched latest changes from origin"
     
     # Try to update current branch if tracking remote
@@ -291,7 +312,7 @@ if git fetch origin >"$GIT_FETCH_LOG" 2>&1; then
     else
         # Only pull if we have a tracking branch
         if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-            if git pull --ff-only >"$GIT_PULL_LOG" 2>&1; then
+            if timeout 30s git pull --ff-only >"$GIT_PULL_LOG" 2>&1; then
                 echo_success "Branch $CURRENT_BRANCH successfully updated"
             else
                 echo_info "Could not fast-forward – manual merge may be needed"
