@@ -9,6 +9,7 @@ Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPU
 ## ✨ Features
 
 - **🎨 ComfyUI v0.3.57** with latest performance optimizations
+- **🤖 Automatic model download** - 200+ validated models on demand
 - **📊 Jupyter Lab** integrated development environment  
 - **🔥 H200 GPU optimizations** for maximum performance
 - **🛡️ Crash-loop protection** with fallback mechanisms
@@ -45,7 +46,10 @@ docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-clo
 1. Go to [RunPod Pods](https://console.runpod.io/pods)
 2. Click **Deploy** → Select **ecomtree-comfyui-cloud** template
 3. **Important:** Choose RTX 5090 or H200 GPU (CUDA 12.8+ required)
-4. Click **Deploy On-Demand**
+4. *Optional:* Set Environment Variables:
+   - `DOWNLOAD_MODELS=true` - for automatic model download
+   - `HF_TOKEN=hf_xxx` - for protected Hugging Face models
+5. Click **Deploy On-Demand**
 
 ### 3. Access Services
 
@@ -61,9 +65,9 @@ Once deployed:
 ## 🔧 Project Structure
 
 ```
-runpod-comfyui-h200/
+runpod-comfyui-cloud/
 ├── Dockerfile                  # Main pod image
-├── start_comfyui_h200.sh      # Startup script (reference)
+├── setup-codex.sh             # Codex environment setup
 ├── docs/
 │   ├── deployment-guide.md
 │   ├── troubleshooting.md
@@ -71,6 +75,8 @@ runpod-comfyui-h200/
 ├── scripts/
 │   ├── build.sh               # Local build helper
 │   ├── deploy.sh              # RunPod deployment
+│   ├── download_models.py     # Model download script
+│   ├── verify_links.py        # Link validation
 │   └── test.sh                # Image testing
 ├── .github/
 │   └── workflows/
@@ -100,6 +106,37 @@ docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-clo
 ```
 
 ## 🔧 Configuration
+
+### 🤖 Automatic Model Download
+
+The image supports automatic downloading of all validated ComfyUI models at startup:
+
+**Option 1: RunPod Environment Variable**
+```bash
+# In RunPod Pod Settings under "Environment Variables"
+DOWNLOAD_MODELS=true
+HF_TOKEN=hf_xxxxxxxxxxxxx  # Optional: for protected Hugging Face models
+```
+
+**Option 2: Docker Run**
+```bash
+docker run -e DOWNLOAD_MODELS=true -e HF_TOKEN=hf_xxx ecomtree/comfyui-cloud:latest
+```
+
+**Manual Download (in running container)**
+```bash
+# Direct in container
+docker exec -it <container_name> /usr/local/bin/download_comfyui_models.sh
+
+# Or Python script directly
+docker exec -it <container_name> python3 /workspace/scripts/download_models.py /workspace
+```
+
+**Notes:**
+- ⏱️ Download takes several hours depending on internet connection
+- 💾 Requires approximately 200+ GB free storage
+- 📋 Progress log: `/workspace/model_download.log`
+- ✅ Runs in background - ComfyUI starts immediately
 
 ### GPU Optimizations
 
@@ -145,6 +182,12 @@ python main.py \
 - ✅ **Check:** Wait 2-3 minutes for full startup
 - ✅ **Verify:** Pod has Port Mappings in RunPod console
 
+**Model download not working:**
+- ✅ **Check:** Environment variable `DOWNLOAD_MODELS=true` is set
+- ✅ **Verify:** Check log: `cat /workspace/model_download.log`
+- ✅ **Retry:** Start manually with `/usr/local/bin/download_comfyui_models.sh`
+- ⚠️ **HF Token:** For protected models set `HF_TOKEN`
+
 See [troubleshooting.md](docs/troubleshooting.md) for detailed solutions.
 
 ## 💰 Cost Analysis
@@ -161,12 +204,18 @@ See [troubleshooting.md](docs/troubleshooting.md) for detailed solutions.
 - **Heavy Batch Processing:** H200 (maximum performance)
 - **Production Workloads:** RTX 5090 (optimal balance)
 
-## 🔄 Version History
+## 🔄 Version & Updates
 
-- **v1.2** (`no-auth`) - No Jupyter authentication, dual services
-- **v1.1** (`complete`) - Dual service setup with authentication  
-- **v1.0** (`final`) - H200 optimized baseline
-- **v0.9** (`working`) - Stable RTX compatibility
+The image is continuously updated and available as **`:latest`**:
+```bash
+docker pull ecomtree/comfyui-cloud:latest
+```
+
+**Current Features:**
+- ComfyUI v0.3.57
+- Automatic model download support
+- No Jupyter authentication
+- H200 & RTX 5090 optimizations
 
 ## 🤝 Contributing
 
@@ -189,4 +238,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 **Maintained by:** [@sebastianhein](https://github.com/sebastianhein)  
 **Status:** ✅ Production Ready  
-**Last Updated:** 2025-09-18
+**Last Updated:** 2025-10-14
