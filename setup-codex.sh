@@ -340,6 +340,8 @@ validate_python_packages || {
 # 5. System Tools (optional - graceful degradation)
 # ============================================================
 echo_info "🔧 Ensuring system tools (optional)..."
+# Note: 'docker' package is not included because it does not exist on Debian/Ubuntu systems.
+# If Docker is needed, install 'docker.io' instead. Docker installation was intentionally omitted.
 ensure_system_packages jq curl git || echo_info "Some system tools could not be installed (non-critical)"
 
 # ============================================================
