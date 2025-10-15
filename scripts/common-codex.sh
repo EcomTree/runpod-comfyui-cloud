@@ -1,6 +1,10 @@
 #!/bin/bash
 
 # Shared helpers for Codex setup scripts.
+#
+# Environment variables:
+#   RETRY_ATTEMPTS - Maximum number of retry attempts for flaky commands (default: 3)
+#   RETRY_DELAY    - Delay in seconds between retry attempts (default: 2)
 
 # Avoid redefinition when sourced multiple times.
 if [[ -z "${CODEX_COMMON_HELPERS_LOADED:-}" ]]; then
