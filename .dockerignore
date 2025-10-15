@@ -35,6 +35,7 @@ __pycache__/
 venv/
 env/
 .env
+.cursor/
 
 # Node.js
 node_modules/
