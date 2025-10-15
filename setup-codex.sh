@@ -280,7 +280,7 @@ elif [ ! -d "$REPO_DIR" ]; then
         fi
         rm -f "$GIT_CLONE_LOG"
         # Exit unless in container mode
-        if [ "$CONTAINER_MODE" != true ]; then
+        if [ "$CONTAINER_MODE" != "true" ]; then
             exit 1
         fi
         echo_warning "Continuing without repository (container mode)"
