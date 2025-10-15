@@ -7,14 +7,42 @@
 # Version: 4.1 (ComfyUI Cloud Pod Edition)
 #
 
+# Function: Check if running in Codex environment
+# A 'Codex environment' is typically identified by either:
+#   1. The presence of the '/workspace' directory (standard in Codex/RunPod cloud pods)
+#   2. The 'CODEX_CONTAINER' or 'RUNPOD_POD_ID' environment variables being set
+#   3. The 'CODEX_WORKSPACE' environment variable being set
+# These indicators determine if the script is running inside a Codex/RunPod cloud pod.
+is_codex_environment() {
+    [ -n "${CODEX_CONTAINER:-}" ] || \
+    [ -n "${RUNPOD_POD_ID:-}" ] || \
+    [ -n "${CODEX_WORKSPACE:-}" ] || \
+    [ -d "/workspace" ]
+}
+
+# Detect Codex environment early
+if is_codex_environment; then
+    export IN_CODEX=true
+else
+    export IN_CODEX=false
+fi
+
 # Add connection stability check
-if [ -n "${CODEX_CONTAINER:-}" ] || [ -n "${RUNPOD_POD_ID:-}" ]; then
+if [ "$IN_CODEX" = true ]; then
     echo "🔄 Waiting for stable connection..."
     sleep 2
 fi
 
-set -Eeuo pipefail
-trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
+# Use strict mode, but in Codex environments use only a single '-e' flag.
+# This makes error handling slightly more predictable in containerized environments,
+# as duplicate '-e' flags have no effect in bash, but the single flag avoids subtle issues.
+if [ "$IN_CODEX" = true ]; then
+    set -Euo pipefail
+    trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
+else
+    set -Eeuo pipefail
+    trap 'echo -e "${RED}❌ Error on line ${BASH_LINENO[0]}${NC}"' ERR
+fi
 
 # Colors for better readability
 GREEN='\033[0;32m'
@@ -213,20 +241,11 @@ fi
 # ============================================================
 echo_info "🔍 Running pre-flight checks..."
 
-# Codex Environment Detection:
-# A 'Codex environment' is typically identified by either:
-#   1. The presence of the '/workspace' directory (standard in Codex/RunPod cloud pods)
-#   2. The 'CODEX_WORKSPACE' environment variable being set
-# These indicators determine if the script is running inside a Codex/RunPod cloud pod,
-# which requires specific setup steps and optimizations (GPU configuration, network volumes,
-# port mappings for ComfyUI/Jupyter). If neither is present, the script assumes a local
-# development environment and may adjust its behavior accordingly.
-if [ -d "/workspace" ] || [ -n "${CODEX_WORKSPACE:-}" ]; then
+# Codex environment already detected at script start
+if [ "$IN_CODEX" = true ]; then
     echo_success "Codex environment detected"
-    export IN_CODEX=true
 else
     echo_warning "Not in typical Codex environment - some features may differ"
-    export IN_CODEX=false
 fi
 
 # Check Python version
@@ -279,11 +298,11 @@ elif [ ! -d "$REPO_DIR" ]; then
             echo_warning "Details:" && cat "$GIT_CLONE_LOG"
         fi
         rm -f "$GIT_CLONE_LOG"
-        # Exit unless in container mode
-        if [ "$CONTAINER_MODE" != "true" ]; then
+        # Exit unless in container mode or Codex environment
+        if [ "$CONTAINER_MODE" != "true" ] && [ "$IN_CODEX" != "true" ]; then
             exit 1
         fi
-        echo_warning "Continuing without repository (container mode)"
+        echo_warning "Continuing without repository (container/Codex mode)"
     fi
 elif [ -d "$REPO_DIR" ]; then
     echo_warning "Repository already exists, skipping clone"
