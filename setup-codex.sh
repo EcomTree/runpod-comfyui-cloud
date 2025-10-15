@@ -304,7 +304,8 @@ else
     echo_info "Fetch from origin skipped (no network or not needed)"
     # Not a warning - this is expected in test environments
 fi
-rm -f "$GIT_FETCH_LOG" "$GIT_PULL_LOG" 2>/dev/null || true
+[ -f "$GIT_FETCH_LOG" ] && rm -f "$GIT_FETCH_LOG"
+[ -f "$GIT_PULL_LOG" ] && rm -f "$GIT_PULL_LOG"
 
 # ============================================================
 # 4. Python Environment Setup (with venv)

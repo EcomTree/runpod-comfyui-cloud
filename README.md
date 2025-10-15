@@ -47,8 +47,8 @@ docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-clo
 2. Click **Deploy** → Select **ecomtree-comfyui-cloud** template
 3. **Important:** Choose RTX 5090 or H200 GPU (CUDA 12.8+ required)
 4. *Optional:* Set Environment Variables:
-   - `DOWNLOAD_MODELS=true` - für automatischen Model-Download
-   - `HF_TOKEN=hf_xxx` - für protected Hugging Face Modelle
+   - `DOWNLOAD_MODELS=true` - for automatic model download
+   - `HF_TOKEN=hf_xxx` - for protected Hugging Face models
 5. Click **Deploy On-Demand**
 
 ### 3. Access Services
@@ -109,13 +109,13 @@ docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-clo
 
 ### 🤖 Automatic Model Download
 
-Das Image unterstützt automatisches Herunterladen aller validierten ComfyUI-Modelle beim Start:
+The image supports automatic downloading of all validated ComfyUI models at startup:
 
 **Option 1: RunPod Environment Variable**
 ```bash
-# In RunPod Pod Settings unter "Environment Variables"
+# In RunPod Pod Settings under "Environment Variables"
 DOWNLOAD_MODELS=true
-HF_TOKEN=hf_xxxxxxxxxxxxx  # Optional: für protected Hugging Face Modelle
+HF_TOKEN=hf_xxxxxxxxxxxxx  # Optional: for protected Hugging Face models
 ```
 
 **Option 2: Docker Run**
@@ -123,20 +123,20 @@ HF_TOKEN=hf_xxxxxxxxxxxxx  # Optional: für protected Hugging Face Modelle
 docker run -e DOWNLOAD_MODELS=true -e HF_TOKEN=hf_xxx ecomtree/comfyui-cloud:latest
 ```
 
-**Manueller Download (im laufenden Container)**
+**Manual Download (in running container)**
 ```bash
-# Direkt im Container
+# Direct in container
 docker exec -it <container_name> /usr/local/bin/download_comfyui_models.sh
 
-# Oder Python-Script direkt
+# Or Python script directly
 docker exec -it <container_name> python3 /workspace/scripts/download_models.py /workspace
 ```
 
-**Hinweise:**
-- ⏱️ Download dauert je nach Internet-Verbindung mehrere Stunden
-- 💾 Benötigt ca. 200+ GB freien Speicher
-- 📋 Progress-Log: `/workspace/model_download.log`
-- ✅ Läuft im Hintergrund - ComfyUI startet sofort
+**Notes:**
+- ⏱️ Download takes several hours depending on internet connection
+- 💾 Requires approximately 200+ GB free storage
+- 📋 Progress log: `/workspace/model_download.log`
+- ✅ Runs in background - ComfyUI starts immediately
 
 ### GPU Optimizations
 
@@ -183,10 +183,10 @@ python main.py \
 - ✅ **Verify:** Pod has Port Mappings in RunPod console
 
 **Model download not working:**
-- ✅ **Check:** Environment variable `DOWNLOAD_MODELS=true` gesetzt
-- ✅ **Verify:** Log checken: `cat /workspace/model_download.log`
-- ✅ **Retry:** Manuell starten mit `/usr/local/bin/download_comfyui_models.sh`
-- ⚠️ **HF Token:** Für protected models `HF_TOKEN` setzen
+- ✅ **Check:** Environment variable `DOWNLOAD_MODELS=true` is set
+- ✅ **Verify:** Check log: `cat /workspace/model_download.log`
+- ✅ **Retry:** Start manually with `/usr/local/bin/download_comfyui_models.sh`
+- ⚠️ **HF Token:** For protected models set `HF_TOKEN`
 
 See [troubleshooting.md](docs/troubleshooting.md) for detailed solutions.
 
@@ -206,12 +206,12 @@ See [troubleshooting.md](docs/troubleshooting.md) for detailed solutions.
 
 ## 🔄 Version & Updates
 
-Das Image wird kontinuierlich aktualisiert und ist als **`:latest`** verfügbar:
+The image is continuously updated and available as **`:latest`**:
 ```bash
 docker pull ecomtree/comfyui-cloud:latest
 ```
 
-**Aktuelle Features:**
+**Current Features:**
 - ComfyUI v0.3.57
 - Automatic model download support
 - No Jupyter authentication
