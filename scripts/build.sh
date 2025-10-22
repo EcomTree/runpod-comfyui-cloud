@@ -67,7 +67,7 @@ BUILD_ARGS=(
 )
 
 if [ "${PUSH:-false}" = "true" ]; then
-    BUILD_ARGS=(--push "${BUILD_ARGS[@]}")
+    BUILD_ARGS+=(--push)
 fi
 
 if docker buildx build "${BUILD_ARGS[@]}"; then
