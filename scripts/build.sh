@@ -17,7 +17,7 @@ fi
 IMAGE_NAME="ecomtree/comfyui-cloud"
 TAG="latest"
 DOCKERFILE="Dockerfile"
-PUSH=true
+PUSH=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
