@@ -59,36 +59,25 @@ echo "🏗️ Platform: linux/amd64 (RunPod compatible)"
 echo ""
 
 # Build with Docker Buildx for cross-platform compatibility
-if [ "$PUSH" = true ]; then
-    docker buildx build \
-        --platform linux/amd64 \
-        --push \
-        -f "$DOCKERFILE" \
-        -t "$FULL_IMAGE" \
-        .
-else
-    docker buildx build \
-        --platform linux/amd64 \
-        -f "$DOCKERFILE" \
-        -t "$FULL_IMAGE" \
-        .
+BUILD_ARGS=(
+    --platform linux/amd64
+    -f "$DOCKERFILE"
+    -t "$FULL_IMAGE"
+    .
+)
+
+if [ "${PUSH:-false}" = "true" ]; then
+    BUILD_ARGS=(--push "${BUILD_ARGS[@]}")
 fi
 
-if [ $? -eq 0 ]; then
+if docker buildx build "${BUILD_ARGS[@]}"; then
     echo ""
     echo "✅ Build successful: $FULL_IMAGE"
-    
-    if [ "$PUSH" = true ]; then
-        echo "📤 Pushing to registry..."
-        docker push "$FULL_IMAGE"
-        if [ $? -eq 0 ]; then
-            echo "✅ Push successful: $FULL_IMAGE"
-        else
-            echo "❌ Push failed"
-            exit 1
-        fi
+
+    if [ "${PUSH:-false}" = "true" ]; then
+        echo "📤 Image pushed via Buildx"
     fi
-    
+
     echo ""
     echo "🎉 Ready for RunPod deployment!"
     echo "💡 Use: docker run -p 8188:8188 -p 8888:8888 $FULL_IMAGE"
