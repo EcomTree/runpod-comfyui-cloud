@@ -61,6 +61,7 @@ echo ""
 # Build with Docker Buildx for cross-platform compatibility
 docker buildx build \
     --platform linux/amd64 \
+    --push true \
     -f "$DOCKERFILE" \
     -t "$FULL_IMAGE" \
     .
