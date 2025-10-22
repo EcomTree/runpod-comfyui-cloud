@@ -59,12 +59,20 @@ echo "🏗️ Platform: linux/amd64 (RunPod compatible)"
 echo ""
 
 # Build with Docker Buildx for cross-platform compatibility
-docker buildx build \
-    --platform linux/amd64 \
-    --push true \
-    -f "$DOCKERFILE" \
-    -t "$FULL_IMAGE" \
-    .
+if [ "$PUSH" = true ]; then
+    docker buildx build \
+        --platform linux/amd64 \
+        --push \
+        -f "$DOCKERFILE" \
+        -t "$FULL_IMAGE" \
+        .
+else
+    docker buildx build \
+        --platform linux/amd64 \
+        -f "$DOCKERFILE" \
+        -t "$FULL_IMAGE" \
+        .
+fi
 
 if [ $? -eq 0 ]; then
     echo ""
