@@ -53,7 +53,6 @@ ensure_comfyui_exists() {
     pip install --no-cache-dir librosa soundfile av moviepy
 
     install_comfyui_manager
-    generate_files
 
     log "✅" "ComfyUI installation completed!"
 }
@@ -109,6 +108,9 @@ YAMLEOF
 }
 
 ensure_comfyui_exists
+
+# Always ensure required files exist (even if ComfyUI was already installed)
+generate_files
 
 log "📊" "Starting Jupyter Lab on port 8888..."
 cd /workspace
