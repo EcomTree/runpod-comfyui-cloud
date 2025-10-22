@@ -14,7 +14,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Default values
-IMAGE_NAME="sebastianhein/comfyui-h200"
+IMAGE_NAME="ecomtree/comfyui-cloud"
 TAG="latest"
 DOCKERFILE="Dockerfile"
 PUSH=false
@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  -t, --tag TAG        Image tag (default: latest)"
-            echo "  -n, --name NAME      Image name (default: sebastianhein/comfyui-h200)"
+            echo "  -n, --name NAME      Image name (default: ecomtree/comfyui-cloud)"
             echo "  --push               Push to registry after build"
             echo "  -h, --help           Show this help"
             exit 0
