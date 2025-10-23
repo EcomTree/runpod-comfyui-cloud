@@ -18,13 +18,14 @@ ensure_comfyui_exists() {
         return
     fi
 
-    log "⚠️" "ComfyUI not found in /workspace (Volume Mount detected)"
+    log "⚠️" "ComfyUI not found or incomplete in /workspace"
     log "📦" "Installing ComfyUI to persistent volume..."
 
     cd /workspace
 
-    if [ -d ComfyUI ] && [ ! -d ComfyUI/.git ]; then
-        log "ℹ️" "Removing leftover /workspace/ComfyUI directory without git metadata."
+    # Remove incomplete installation (missing main.py or git metadata)
+    if [ -d ComfyUI ]; then
+        log "ℹ️" "Removing incomplete /workspace/ComfyUI directory."
         rm -rf ComfyUI
     fi
 
