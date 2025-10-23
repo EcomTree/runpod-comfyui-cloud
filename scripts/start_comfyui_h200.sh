@@ -13,18 +13,19 @@ log "🚀" "Starting ComfyUI + Jupyter Lab for H200 (Docker Version)"
 echo "=================================================="
 
 ensure_comfyui_exists() {
-    if [ -d "/workspace/ComfyUI/.git" ]; then
+    if [ -d "/workspace/ComfyUI/.git" ] && [ -f "/workspace/ComfyUI/main.py" ]; then
         log "✅" "ComfyUI found in /workspace"
         return
     fi
 
-    log "⚠️" "ComfyUI not found in /workspace (Volume Mount detected)"
+    log "⚠️" "ComfyUI not found or incomplete in /workspace"
     log "📦" "Installing ComfyUI to persistent volume..."
 
     cd /workspace
 
-    if [ -d ComfyUI ] && [ ! -d ComfyUI/.git ]; then
-        log "ℹ️" "Removing leftover /workspace/ComfyUI directory without git metadata."
+    # Remove incomplete installation (missing main.py or git metadata)
+    if [ -d ComfyUI ]; then
+        log "ℹ️" "Removing incomplete /workspace/ComfyUI directory."
         rm -rf ComfyUI
     fi
 
@@ -128,6 +129,14 @@ log "Loading" "H200 optimizations..."
 python3 h200_optimizations.py
 
 log "⚡" "Starting ComfyUI with H200 launch flags..."
+
+# Final safety check before starting ComfyUI
+if [ ! -f "/workspace/ComfyUI/main.py" ]; then
+    log "❌" "main.py not found in /workspace/ComfyUI - installation failed!"
+    log "🔍" "Directory contents:"
+    ls -la /workspace/ComfyUI/ || true
+    exit 1
+fi
 
 exec python main.py \
     --listen 0.0.0.0 \
