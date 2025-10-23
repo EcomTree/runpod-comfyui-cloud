@@ -113,6 +113,12 @@ ensure_comfyui_exists
 # Always ensure required files exist (even if ComfyUI was already installed)
 generate_files
 
+# Ensure comfyui_models_complete_library.md is available in workspace
+if [ -f "/opt/runpod/comfyui_models_complete_library.md" ] && [ ! -f "/workspace/comfyui_models_complete_library.md" ]; then
+    log "📄" "Syncing comfyui_models_complete_library.md into /workspace"
+    cp /opt/runpod/comfyui_models_complete_library.md /workspace/
+fi
+
 log "📊" "Starting Jupyter Lab on port 8888..."
 cd /workspace
 nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \

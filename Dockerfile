@@ -28,6 +28,9 @@ RUN pip uninstall -y torch torchvision torchaudio xformers && \
 # Workspace einrichten
 WORKDIR /workspace
 
+# Prepare directory for bundled assets
+RUN mkdir -p /opt/runpod
+
 # --- PART 3: ComfyUI installation ---
 
 # Clone ComfyUI and install its Python dependencies (without PyTorch)
@@ -68,6 +71,7 @@ RUN set -e; \
 
 # Copy model documentation and scripts into the image
 COPY scripts/verify_links.py scripts/download_models.py /workspace/scripts/
+COPY comfyui_models_complete_library.md /opt/runpod/
 
 # Create virtual environment for download scripts
 RUN cd /workspace && \
@@ -88,6 +92,13 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     echo "📋 Check /workspace/model_download.log for progress."
 
     cd /workspace
+
+    LIBRARY_SOURCE="/opt/runpod/comfyui_models_complete_library.md"
+    LIBRARY_DEST="/workspace/comfyui_models_complete_library.md"
+    if [ -f "$LIBRARY_SOURCE" ] && [ ! -f "$LIBRARY_DEST" ]; then
+        echo "📄 Syncing comfyui_models_complete_library.md into /workspace"
+        cp "$LIBRARY_SOURCE" "$LIBRARY_DEST"
+    fi
 
     # Run model download in background with logging
     # Export HF_TOKEN directly in the environment for the background job
