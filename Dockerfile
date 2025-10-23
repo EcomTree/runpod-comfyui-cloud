@@ -238,8 +238,9 @@ torch.backends.cudnn.allow_tf32 = True
 print("✅ H200 optimizations applied!")
 PYEOF
 
-# Create extra model paths file
-cat > extra_model_paths.yaml << 'YAMLEOF'
+# Create extra model paths file if it does not already exist (preserve user customizations)
+if [ ! -f extra_model_paths.yaml ]; then
+    cat > extra_model_paths.yaml << 'YAMLEOF'
 comfyui:
     checkpoints: models/checkpoints/
     diffusion_models: models/diffusion_models/
@@ -248,6 +249,9 @@ comfyui:
     text_encoders: models/text_encoders/
     audio_encoders: models/audio_encoders/
 YAMLEOF
+else
+    echo "ℹ️ Preserving existing extra_model_paths.yaml"
+fi
 
 # Start Jupyter Lab in the background (port 8888) without token auth
 echo "📊 Starting Jupyter Lab on port 8888..."
