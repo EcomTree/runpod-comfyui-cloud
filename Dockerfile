@@ -160,9 +160,9 @@ set -e
 echo "🚀 Starting ComfyUI + Jupyter Lab for H200 (Docker Version)"
 echo "=================================================="
 
-# Check if ComfyUI exists (important for volume mounts)
-if [ ! -d "/workspace/ComfyUI" ]; then
-    echo "⚠️  ComfyUI not found in /workspace (volume mount detected)"
+# Check if ComfyUI exists and is properly installed (important for volume mounts)
+if [ ! -d "/workspace/ComfyUI" ] || [ ! -f "/workspace/ComfyUI/main.py" ]; then
+    echo "⚠️  ComfyUI not found or incomplete in /workspace (volume mount detected)"
     echo "📦 Installing ComfyUI to persistent volume..."
     
     cd /workspace
@@ -218,6 +218,27 @@ if [ ! -d "/workspace/ComfyUI" ]; then
     echo "✅ ComfyUI installation completed!"
 else
     echo "✅ ComfyUI found in /workspace"
+    
+    # Double-check that main.py exists even if directory was found
+    if [ ! -f "/workspace/ComfyUI/main.py" ]; then
+        echo "⚠️  ComfyUI directory exists but main.py is missing - reinstalling..."
+        cd /workspace
+        rm -rf ComfyUI
+        git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git
+        cd ComfyUI
+        pip install --no-cache-dir -r requirements.txt
+        pip install --no-cache-dir librosa soundfile av moviepy
+        
+        # Reinstall ComfyUI Manager
+        mkdir -p custom_nodes
+        cd custom_nodes
+        git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git
+        cd ComfyUI-Manager
+        pip install --no-cache-dir -r requirements.txt
+        cd /workspace/ComfyUI
+        
+        echo "✅ ComfyUI reinstallation completed!"
+    fi
 fi
 
 # Always create/update H200 optimization files (even if ComfyUI was already present)
@@ -276,6 +297,14 @@ echo "Loading H200 optimizations..."
 python3 h200_optimizations.py
 
 echo "⚡ Starting ComfyUI with H200 launch flags..."
+
+# Final safety check before starting ComfyUI
+if [ ! -f "main.py" ]; then
+    echo "❌ main.py not found in /workspace/ComfyUI - installation failed!"
+    echo "🔍 Directory contents:"
+    ls -la /workspace/ComfyUI/ || true
+    exit 1
+fi
 
 # Launch parameters (ComfyUI as main process)
 exec python main.py \
