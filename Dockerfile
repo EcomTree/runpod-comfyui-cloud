@@ -160,12 +160,16 @@ set -e
 echo "🚀 Starting ComfyUI + Jupyter Lab for H200 (Docker Version)"
 echo "=================================================="
 
-# Check if ComfyUI exists and is properly installed (important for volume mounts)
-if [ ! -d "/workspace/ComfyUI" ] || [ ! -f "/workspace/ComfyUI/main.py" ]; then
-    echo "⚠️  ComfyUI not found or incomplete in /workspace (volume mount detected)"
+# Install ComfyUI function to avoid code duplication
+install_comfyui() {
     echo "📦 Installing ComfyUI to persistent volume..."
-    
     cd /workspace
+    
+    # Remove incomplete installation if it exists
+    if [ -d ComfyUI ]; then
+        echo "ℹ️  Removing incomplete ComfyUI directory..."
+        rm -rf ComfyUI
+    fi
     
     # Clone ComfyUI (shallow clone at tag v0.3.57)
     git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git || {
@@ -216,29 +220,14 @@ if [ ! -d "/workspace/ComfyUI" ] || [ ! -f "/workspace/ComfyUI/main.py" ]; then
     cd /workspace/ComfyUI
     
     echo "✅ ComfyUI installation completed!"
+}
+
+# Check if ComfyUI exists and is properly installed (important for volume mounts)
+if [ ! -d "/workspace/ComfyUI" ] || [ ! -f "/workspace/ComfyUI/main.py" ]; then
+    echo "⚠️  ComfyUI not found or incomplete in /workspace (volume mount detected)"
+    install_comfyui
 else
     echo "✅ ComfyUI found in /workspace"
-    
-    # Double-check that main.py exists even if directory was found
-    if [ ! -f "/workspace/ComfyUI/main.py" ]; then
-        echo "⚠️  ComfyUI directory exists but main.py is missing - reinstalling..."
-        cd /workspace
-        rm -rf ComfyUI
-        git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git
-        cd ComfyUI
-        pip install --no-cache-dir -r requirements.txt
-        pip install --no-cache-dir librosa soundfile av moviepy
-        
-        # Reinstall ComfyUI Manager
-        mkdir -p custom_nodes
-        cd custom_nodes
-        git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git
-        cd ComfyUI-Manager
-        pip install --no-cache-dir -r requirements.txt
-        cd /workspace/ComfyUI
-        
-        echo "✅ ComfyUI reinstallation completed!"
-    fi
 fi
 
 # Always create/update H200 optimization files (even if ComfyUI was already present)

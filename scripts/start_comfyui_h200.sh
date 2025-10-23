@@ -27,12 +27,6 @@ ensure_comfyui_exists() {
         log "ℹ️" "Removing leftover /workspace/ComfyUI directory without git metadata."
         rm -rf ComfyUI
     fi
-    
-    # Also remove if main.py is missing
-    if [ -d ComfyUI ] && [ ! -f ComfyUI/main.py ]; then
-        log "ℹ️" "Removing incomplete /workspace/ComfyUI directory (main.py missing)."
-        rm -rf ComfyUI
-    fi
 
     git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git
     cd ComfyUI
