@@ -134,7 +134,7 @@ log "⚡" "Starting ComfyUI with H200 launch flags..."
 if [ ! -f "/workspace/ComfyUI/main.py" ]; then
     log "❌" "main.py not found in /workspace/ComfyUI - installation failed!"
     log "🔍" "Directory contents:"
-    ls -la . || true
+    ls -la /workspace/ComfyUI/ || true
     exit 1
 fi
 
