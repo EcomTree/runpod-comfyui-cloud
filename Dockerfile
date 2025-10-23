@@ -71,7 +71,6 @@ RUN set -e; \
 
 # Copy model documentation and scripts into the image
 COPY scripts/verify_links.py scripts/download_models.py /workspace/scripts/
-COPY comfyui_models_complete_library.md /opt/runpod/
 
 # Create virtual environment for download scripts
 RUN cd /workspace && \
