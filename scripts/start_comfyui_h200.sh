@@ -130,7 +130,7 @@ python3 h200_optimizations.py
 log "⚡" "Starting ComfyUI with H200 launch flags..."
 
 # Final safety check before starting ComfyUI
-if [ ! -f "main.py" ]; then
+if [ ! -f "/workspace/ComfyUI/main.py" ]; then
     log "❌" "main.py not found in /workspace/ComfyUI - installation failed!"
     log "🔍" "Directory contents:"
     ls -la /workspace/ComfyUI/ || true
