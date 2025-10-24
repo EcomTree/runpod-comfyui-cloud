@@ -148,7 +148,7 @@ echo "📁 Model directories status:"
 MODEL_DIRS=("checkpoints" "vae" "loras" "controlnet" "upscale_models" "unet" "clip" "t5" "clip_vision")
 for dir in "${MODEL_DIRS[@]}"; do
     if docker exec "$CONTAINER_NAME" test -d "/workspace/ComfyUI/models/$dir" 2>/dev/null; then
-        # Count model files (stderr suppression applies to entire pipeline, but only find produces permission errors)
+        # Count model files; 2>/dev/null suppresses find permission errors, || echo "0" handles command failures
         COUNT=$(docker exec "$CONTAINER_NAME" find "/workspace/ComfyUI/models/$dir" \( -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth" \) 2>/dev/null | wc -l || echo "0")
         SIZE=$(docker exec "$CONTAINER_NAME" du -sh "/workspace/ComfyUI/models/$dir" 2>/dev/null | cut -f1 || echo "0")
         echo "   $dir: $COUNT models ($SIZE)"
@@ -160,7 +160,7 @@ done
 # Check placeholder files (should disappear after model download)
 echo ""
 echo "📄 Placeholder files status:"
-PLACEHOLDER_COUNT=$(docker exec "$CONTAINER_NAME" find /workspace/ComfyUI/models -name "put_*_here" 2>/dev/null | wc -l 2>/dev/null || echo "0")
+PLACEHOLDER_COUNT=$(docker exec "$CONTAINER_NAME" find /workspace/ComfyUI/models -name "put_*_here" 2>/dev/null | wc -l || echo "0")
 echo "   Placeholder files remaining: $PLACEHOLDER_COUNT"
 
 if [ "$PLACEHOLDER_COUNT" -eq 0 ]; then
@@ -177,7 +177,12 @@ COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" sh -c 'curl -s -f http://lo
 CURL_EXIT_CODE=$(echo "$COMFYUI_QUEUE_OUTPUT" | grep -o 'EXIT_CODE:[0-9]*' | cut -d: -f2)
 COMFYUI_QUEUE_OUTPUT=$(echo "$COMFYUI_QUEUE_OUTPUT" | grep -v 'EXIT_CODE:')
 
-if [ "$CURL_EXIT_CODE" -eq 0 ]; then
+# Validate that CURL_EXIT_CODE is not empty before numeric comparison
+if [ -z "$CURL_EXIT_CODE" ]; then
+    echo "❌ Failed to extract curl exit code (docker exec or curl failed)"
+    echo "🔍 ComfyUI logs:"
+    docker exec "$CONTAINER_NAME" tail -15 /workspace/ComfyUI/user/comfyui.log 2>/dev/null || echo "No ComfyUI logs available"
+elif [ "$CURL_EXIT_CODE" -eq 0 ]; then
     echo "✅ ComfyUI API is responding"
     echo "📊 ComfyUI status:"
     echo "$COMFYUI_QUEUE_OUTPUT" | head -5 2>/dev/null || echo "Could not parse queue status"
@@ -192,17 +197,13 @@ echo ""
 echo "📊 Testing Jupyter Lab..."
 # Execute curl inside container and capture exit code properly
 # Try both /lab and / endpoints since Jupyter can redirect
-if docker exec "$CONTAINER_NAME" sh -c 'curl -s -f -L http://localhost:8888/ > /dev/null' 2>&1; then
-    JUPYTER_EXIT_CODE=$?
-    if [ $JUPYTER_EXIT_CODE -eq 0 ]; then
-        echo "✅ Jupyter Lab is responding"
-    else
-        echo "❌ Jupyter Lab is not responding (exit code: $JUPYTER_EXIT_CODE)"
-        echo "🔍 Jupyter logs:"
-        docker exec "$CONTAINER_NAME" tail -10 /workspace/jupyter.log 2>/dev/null || echo "No Jupyter logs available"
-    fi
+docker exec "$CONTAINER_NAME" sh -c 'curl -s -f -L http://localhost:8888/ > /dev/null' 2>&1
+JUPYTER_EXIT_CODE=$?
+
+if [ $JUPYTER_EXIT_CODE -eq 0 ]; then
+    echo "✅ Jupyter Lab is responding"
 else
-    echo "❌ Jupyter Lab is not responding"
+    echo "❌ Jupyter Lab is not responding (exit code: $JUPYTER_EXIT_CODE)"
     echo "🔍 Jupyter logs:"
     docker exec "$CONTAINER_NAME" tail -10 /workspace/jupyter.log 2>/dev/null || echo "No Jupyter logs available"
 fi

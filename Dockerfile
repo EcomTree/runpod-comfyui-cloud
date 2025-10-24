@@ -182,12 +182,14 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
         echo \"🔍 DEBUG: Checking for link verification results...\"
         if [ ! -f \"link_verification_results.json\" ]; then
             echo \"🔍 Checking link accessibility...\"
-            python3 /workspace/scripts/verify_links.py || {
-                exit_code=\$?
+            python3 /workspace/scripts/verify_links.py
+            verify_exit=\$?
+            if [ \$verify_exit -ne 0 ]; then
                 echo \"❌ Link verification failed!\"
-                echo \"   Exit code: \$exit_code\"
+                echo \"   Exit code: \$verify_exit\"
+                echo \"   Check /workspace/model_download.log for details\"
                 exit 1
-            }
+            fi
         else
             echo \"✅ Link verification already completed\"
         fi
@@ -205,12 +207,14 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
         # Download models
         echo \"⬇️  Starting model download...\"
-        python3 /workspace/scripts/download_models.py /workspace || {
-            exit_code=\$?
+        python3 /workspace/scripts/download_models.py /workspace
+        download_exit=\$?
+        if [ \$download_exit -ne 0 ]; then
             echo \"❌ Model download failed!\"
-            echo \"   Exit code: \$exit_code\"
+            echo \"   Exit code: \$download_exit\"
+            echo \"   Check /workspace/model_download.log for details\"
             exit 1
-        }
+        fi
 
         echo \"✅ Model download finished!\"
     " > /workspace/model_download.log 2>&1 &
