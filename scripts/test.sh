@@ -55,7 +55,7 @@ echo "🐳 Container: $CONTAINER_NAME"
 echo "⬇️  Download Models: $DOWNLOAD_MODELS"
 
 if [ -n "$HF_TOKEN" ]; then
-    echo "🔑 HF_TOKEN provided (length: ${#HF_TOKEN})"
+    echo "🔑 HF_TOKEN provided"
 else
     echo "⚠️  No HF_TOKEN provided - some models may fail to download"
 fi

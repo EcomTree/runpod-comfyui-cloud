@@ -87,7 +87,11 @@ HF_TOKEN=${HF_TOKEN:-}
 
 echo "🔍 DEBUG: Environment variables:"
 echo "   DOWNLOAD_MODELS='$DOWNLOAD_MODELS'"
-echo "   HF_TOKEN='${HF_TOKEN:0:10}...'"  # Show first 10 chars only for security
+if [ -n "$HF_TOKEN" ]; then
+    echo "   HF_TOKEN='YES'"
+else
+    echo "   HF_TOKEN='NO'"
+fi
 
 if [ "$DOWNLOAD_MODELS" = "true" ]; then
     echo "🚀 Starting automatic download of ComfyUI models in background..."
@@ -112,11 +116,20 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
     if [ ! -f "$LIBRARY_DEST" ]; then
         echo "📄 Copying comfyui_models_complete_library.md into /workspace"
-        cp "$LIBRARY_SOURCE" "$LIBRARY_DEST" 2>/dev/null || {
+        if [ ! -f "$LIBRARY_SOURCE" ]; then
+            echo "❌ Library source file not found: $LIBRARY_SOURCE"
+            echo "❌ Cannot proceed with model downloads without library file!"
+            echo "Available files in /opt/runpod/:"
+            ls -la /opt/runpod/ || true
+            exit 1
+        fi
+        cp "$LIBRARY_SOURCE" "$LIBRARY_DEST" || {
             echo "❌ Failed to copy library file!"
             echo "Source: $LIBRARY_SOURCE"
             echo "Destination: $LIBRARY_DEST"
+            exit 1
         }
+        echo "✅ Library file copied successfully"
     else
         echo "✅ Library destination already exists: $LIBRARY_DEST"
     fi
@@ -175,8 +188,9 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
         if [ ! -f \"link_verification_results.json\" ]; then
             echo \"🔍 Checking link accessibility...\"
             python3 /workspace/scripts/verify_links.py || {
+                exit_code=\$?
                 echo \"❌ Link verification failed!\"
-                echo \"   Exit code: \$?\"
+                echo \"   Exit code: \$exit_code\"
             }
         else
             echo \"✅ Link verification already completed\"
@@ -196,8 +210,9 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
         # Download models
         echo \"⬇️  Starting model download...\"
         python3 /workspace/scripts/download_models.py /workspace || {
+            exit_code=\$?
             echo \"❌ Model download failed!\"
-            echo \"   Exit code: \$?\"
+            echo \"   Exit code: \$exit_code\"
         }
 
         echo \"✅ Model download finished!\"

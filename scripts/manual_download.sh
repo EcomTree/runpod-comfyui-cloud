@@ -155,7 +155,8 @@ echo "   or: tail -f /workspace/model_download.log"
 echo ""
 
 # Ask for confirmation unless running non-interactively
-if [ -t 0 ]; then
+# Use stdout TTY check (works with docker exec -it)
+if [ -t 1 ]; then
     echo "⚠️  This will download many large models!"
     read -p "Continue? (y/N): " -n 1 -r
     echo ""
