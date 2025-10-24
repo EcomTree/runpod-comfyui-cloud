@@ -270,6 +270,9 @@ download_models() {
         python3 scripts/download_models.py > "$WORKSPACE_DIR/logs/model_download.log" 2>&1 &
         local download_pid=$!
         
+        # Trap to clean up background download process if script exits or is interrupted
+        trap "if kill -0 $download_pid 2>/dev/null; then log_info 'Cleaning up model download process (PID: $download_pid)'; kill $download_pid; fi" EXIT INT TERM
+        
         log_info "Model download started (PID: $download_pid)"
         log_info "Monitor progress: tail -f $WORKSPACE_DIR/logs/model_download.log"
         
