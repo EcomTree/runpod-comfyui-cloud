@@ -26,17 +26,13 @@ HF_TOKEN=hf_xxx
 
 > `HF_TOKEN` ist optional – ohne Token schlagen private/commercial Links (z. B. FLUX.1 Dev) mit **401 Unauthorized** fehl.
 
-**HF_TOKEN Format**:
+**HF_TOKEN Format / Format (DE/EN):**
 
-- Muss mit `hf_` beginnen und mindestens 10 Zeichen lang sein
-- Token ohne `hf_` Präfix oder leere Tokens werden ignoriert
-- Token bekommst du unter: <https://huggingface.co/settings/tokens>
-
-**HF_TOKEN Format (English):**
-
-- Must start with `hf_` and be at least 10 characters long
-- Tokens without the `hf_` prefix or empty tokens will be ignored
-- You can get your token at: <https://huggingface.co/settings/tokens>
+| Deutsch                                                                 | English                                                                |
+|------------------------------------------------------------------------|------------------------------------------------------------------------|
+| Muss mit `hf_` beginnen und mindestens 10 Zeichen lang sein            | Must start with `hf_` and be at least 10 characters long               |
+| Token ohne `hf_` Präfix oder leere Tokens werden ignoriert             | Tokens without the `hf_` prefix or empty tokens will be ignored        |
+| Token bekommst du unter: <https://huggingface.co/settings/tokens>      | You can get your token at: <https://huggingface.co/settings/tokens>    |
 ### Manuelle Ausführung
 
 Falls du den Download später starten möchtest:
