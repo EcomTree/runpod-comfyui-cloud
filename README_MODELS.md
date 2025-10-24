@@ -146,7 +146,7 @@ docker exec <container_name> bash -c "
 "
 ```
 
-#### Option 2: Verwendetes Manual-Download-Script
+#### Option 2: Verwenden des Manual-Download-Script
 
 Für eine interaktivere Erfahrung gibt es ein spezielles Manual-Download-Script:
 
