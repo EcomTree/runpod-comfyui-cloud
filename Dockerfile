@@ -191,6 +191,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
                 exit_code=\$?
                 echo \"❌ Link verification failed!\"
                 echo \"   Exit code: \$exit_code\"
+                exit 1
             }
         else
             echo \"✅ Link verification already completed\"
@@ -213,6 +214,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
             exit_code=\$?
             echo \"❌ Model download failed!\"
             echo \"   Exit code: \$exit_code\"
+            exit 1
         }
 
         echo \"✅ Model download finished!\"
