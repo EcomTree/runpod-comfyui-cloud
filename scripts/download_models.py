@@ -121,9 +121,14 @@ class ComfyUIModelDownloader:
                 try:
                     # Limit search to specific subdirectories and reduce maxdepth to avoid issues in large filesystems
                     search_dirs = ['/workspace', '/workspace/models', '/workspace/data', '/workspace/ComfyUI']
-                    per_dir_timeout = int(os.getenv("FIND_TIMEOUT_SECONDS", "10"))
                     max_list = int(os.getenv("FIND_MAX_RESULTS", "100"))
                     found_files = []
+                    
+                    # Iterate through each search directory
+                    for d in search_dirs:
+                        if not os.path.isdir(d):
+                            continue
+                        try:
                             # Use os.walk to traverse up to depth 2
                             for root, dirs, files in os.walk(d):
                                 # Calculate depth relative to the search directory
@@ -136,9 +141,7 @@ class ComfyUIModelDownloader:
                                 for file in files:
                                     if file.endswith('.json'):
                                         found_files.append(os.path.join(root, file))
-                        except subprocess.TimeoutExpired:
-                            print(f"⚠️  Search in {d} timed out (>{per_dir_timeout}s) - skipping")
-                        except (subprocess.SubprocessError, OSError) as e:
+                        except (OSError, PermissionError) as e:
                             print(f"⚠️  Error searching in {d} ({type(e).__name__}): {e}")
                     
                     if found_files:
@@ -148,7 +151,7 @@ class ComfyUIModelDownloader:
                             print(f"  ... (+{len(found_files)-max_list} more)")
                     else:
                         print("No JSON files found in searched directories")
-                except (subprocess.SubprocessError, OSError) as e:
+                except (OSError, PermissionError) as e:
                     print(f"⚠️  Error searching for JSON files ({type(e).__name__}): {e}")
 
                 print("\n🔧 SOLUTION: Run link verification first:")

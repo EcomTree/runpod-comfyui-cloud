@@ -2,7 +2,9 @@
 # Enhanced test script for RunPod ComfyUI Cloud Image with model download testing
 # Validates image functionality locally
 
-set -e
+# Note: Using 'set -eo pipefail' instead of 'set -euo pipefail' to avoid conflicts
+# with ${VAR:-} syntax used throughout the script (e.g., ${CODEX_CONTAINER:-})
+set -eo pipefail
 
 echo "🧪 Testing RunPod ComfyUI Cloud Image (Enhanced)"
 echo "==============================================="
@@ -163,6 +165,8 @@ else
     for dir in "${MODEL_DIRS[@]}"; do
         if docker exec "$CONTAINER_NAME" test -d "/workspace/ComfyUI/models/$dir" 2>/dev/null; then
             # Count model files - wrap entire pipeline in subshell with error suppression
+            # Note: The nested subshells ensure both find and wc errors are suppressed,
+            # and the outer '|| echo 0' provides a safe fallback if the entire pipeline fails
             COUNT_OUTPUT=$(docker exec "$CONTAINER_NAME" sh -c "( (find '/workspace/ComfyUI/models/$dir' \\( -name '*.safetensors' -o -name '*.ckpt' -o -name '*.pth' \\) | wc -l) 2>/dev/null ) || echo '0'")
             COUNT_EXIT=$?
             
@@ -220,6 +224,8 @@ echo ""
 echo "🔌 Testing ComfyUI API endpoint..."
 # Use a temporary file to store curl output inside the container for more reliable exit code capture
 TMP_CURL_OUT="/tmp/comfyui_api_test_$$.out"
+# The backslash before \$? is critical: it prevents the outer shell from expanding $? prematurely,
+# so that the exit code written to ${TMP_CURL_OUT}.rc is from the curl command inside the container.
 docker exec "$CONTAINER_NAME" sh -c "curl -s -f http://localhost:8188/queue > '$TMP_CURL_OUT' ; echo \$? > '${TMP_CURL_OUT}.rc'" >/dev/null 2>&1
 DOCKER_EXEC_RC=$?
 COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" cat "$TMP_CURL_OUT" 2>/dev/null)
@@ -248,12 +254,19 @@ fi
 # Test Jupyter Lab
 echo ""
 echo "📊 Testing Jupyter Lab..."
-# Execute curl inside container and capture exit code properly
-# Try both /lab and / endpoints since Jupyter can redirect
-docker exec "$CONTAINER_NAME" sh -c 'curl -s -f -L http://localhost:8888/ > /dev/null' 2>&1
-JUPYTER_EXIT_CODE=$?
+# Execute curl inside container and capture exit code properly using tmp file pattern
+# This ensures we capture curl's exit code, not docker exec's exit code
+TMP_JUPYTER_OUT="/tmp/jupyter_test_$$.out"
+docker exec "$CONTAINER_NAME" sh -c "curl -s -f -L http://localhost:8888/ > /dev/null ; echo \$? > '${TMP_JUPYTER_OUT}.rc'" >/dev/null 2>&1
+DOCKER_EXEC_RC=$?
+JUPYTER_EXIT_CODE=$(docker exec "$CONTAINER_NAME" cat "${TMP_JUPYTER_OUT}.rc" 2>/dev/null || echo 127)
+docker exec "$CONTAINER_NAME" rm -f "${TMP_JUPYTER_OUT}.rc" >/dev/null 2>&1
 
-if [ $JUPYTER_EXIT_CODE -eq 0 ]; then
+if [ "$DOCKER_EXEC_RC" -ne 0 ]; then
+    echo "❌ Docker exec command failed"
+    echo "🔍 Container may not be running or reachable"
+    docker ps -a --filter "name=$CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.State}}"
+elif [ "$JUPYTER_EXIT_CODE" -eq 0 ]; then
     echo "✅ Jupyter Lab is responding"
 else
     echo "❌ Jupyter Lab is not responding (exit code: $JUPYTER_EXIT_CODE)"

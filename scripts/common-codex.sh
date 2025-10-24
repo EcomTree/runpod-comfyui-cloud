@@ -304,6 +304,7 @@ except Exception as e:
                         else
                             log_success "CUDA version detected: $cuda_ver"
                             # Validate and parse major.minor version for comparison using regex
+                            # Example valid CUDA version strings: "12.1", "11.8", "12.8"
                             if [[ "$cuda_ver" =~ ^([0-9]+)\.([0-9]+) ]]; then
                                 local major="${BASH_REMATCH[1]}"
                                 local minor="${BASH_REMATCH[2]}"

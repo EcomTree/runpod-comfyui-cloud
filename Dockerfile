@@ -20,6 +20,9 @@ RUN apt-get update && apt-get upgrade -y && \
 
 # Install Python dependencies in a single layer (optimized for Docker caching)
 # Removes existing packages first and installs the H200-optimized stack.
+# NOTE: The 'nvidia-tensorrt' package has been removed from the pip install command.
+# Reason: Migrated to upstream 'tensorrt' package for compatibility with H200 hardware and CUDA 12.8.
+# If you require 'nvidia-tensorrt', please update your workflow or install it manually.
 RUN pip uninstall -y torch torchvision torchaudio xformers && \
     pip install --no-cache-dir torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128 && \
     pip install --no-cache-dir ninja flash-attn --no-build-isolation && \
