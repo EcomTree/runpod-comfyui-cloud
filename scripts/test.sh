@@ -145,28 +145,67 @@ fi
 # Check model directories
 echo ""
 echo "📁 Model directories status:"
-MODEL_DIRS=("checkpoints" "vae" "loras" "controlnet" "upscale_models" "unet" "clip" "t5" "clip_vision")
-for dir in "${MODEL_DIRS[@]}"; do
-    if docker exec "$CONTAINER_NAME" test -d "/workspace/ComfyUI/models/$dir" 2>/dev/null; then
-        # Count model files; 2>/dev/null suppresses find permission errors, || echo "0" handles command failures
-        COUNT=$(docker exec "$CONTAINER_NAME" find "/workspace/ComfyUI/models/$dir" \( -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth" \) 2>/dev/null | wc -l || echo "0")
-        SIZE=$(docker exec "$CONTAINER_NAME" du -sh "/workspace/ComfyUI/models/$dir" 2>/dev/null | cut -f1 || echo "0")
-        echo "   $dir: $COUNT models ($SIZE)"
-    else
-        echo "   $dir: ❌ directory not found"
-    fi
-done
+
+# First, verify container is reachable
+if ! docker exec "$CONTAINER_NAME" echo "test" &>/dev/null; then
+    echo "❌ Container is not reachable - cannot check model directories"
+    echo "🔍 Container status:"
+    docker ps -a --filter "name=$CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.State}}"
+else
+    MODEL_DIRS=("checkpoints" "vae" "loras" "controlnet" "upscale_models" "unet" "clip" "t5" "clip_vision")
+    for dir in "${MODEL_DIRS[@]}"; do
+        if docker exec "$CONTAINER_NAME" test -d "/workspace/ComfyUI/models/$dir" 2>/dev/null; then
+            # Count model files - suppress only find's permission errors
+            COUNT_OUTPUT=$(docker exec "$CONTAINER_NAME" sh -c "find '/workspace/ComfyUI/models/$dir' \\( -name '*.safetensors' -o -name '*.ckpt' -o -name '*.pth' \\) 2>/dev/null | wc -l")
+            COUNT_EXIT=$?
+            
+            if [ $COUNT_EXIT -ne 0 ]; then
+                echo "   $dir: ❌ failed to count models (docker exec failed)"
+                continue
+            fi
+            
+            COUNT=${COUNT_OUTPUT:-0}
+            
+            # Get directory size
+            SIZE_OUTPUT=$(docker exec "$CONTAINER_NAME" sh -c "du -sh '/workspace/ComfyUI/models/$dir' 2>/dev/null | cut -f1")
+            SIZE_EXIT=$?
+            
+            if [ $SIZE_EXIT -ne 0 ]; then
+                SIZE="unknown"
+            else
+                SIZE=${SIZE_OUTPUT:-unknown}
+            fi
+            
+            echo "   $dir: $COUNT models ($SIZE)"
+        else
+            echo "   $dir: ❌ directory not found"
+        fi
+    done
+fi
 
 # Check placeholder files (should disappear after model download)
 echo ""
 echo "📄 Placeholder files status:"
-PLACEHOLDER_COUNT=$(docker exec "$CONTAINER_NAME" find /workspace/ComfyUI/models -name "put_*_here" 2>/dev/null | wc -l || echo "0")
-echo "   Placeholder files remaining: $PLACEHOLDER_COUNT"
 
-if [ "$PLACEHOLDER_COUNT" -eq 0 ]; then
-    echo "   ✅ All placeholder files replaced with real models!"
+# Verify container is still reachable
+if ! docker exec "$CONTAINER_NAME" echo "test" &>/dev/null; then
+    echo "❌ Container is not reachable - cannot check placeholder files"
 else
-    echo "   ⚠️  Placeholder files still present (models not downloaded yet)"
+    PLACEHOLDER_OUTPUT=$(docker exec "$CONTAINER_NAME" sh -c "find /workspace/ComfyUI/models -name 'put_*_here' 2>/dev/null | wc -l")
+    PLACEHOLDER_EXIT=$?
+    
+    if [ $PLACEHOLDER_EXIT -ne 0 ]; then
+        echo "   ❌ Failed to count placeholder files (docker exec failed)"
+    else
+        PLACEHOLDER_COUNT=${PLACEHOLDER_OUTPUT:-0}
+        echo "   Placeholder files remaining: $PLACEHOLDER_COUNT"
+        
+        if [ "$PLACEHOLDER_COUNT" -eq 0 ]; then
+            echo "   ✅ All placeholder files replaced with real models!"
+        else
+            echo "   ⚠️  Placeholder files still present (models not downloaded yet)"
+        fi
+    fi
 fi
 
 # Test ComfyUI API with enhanced error checking
