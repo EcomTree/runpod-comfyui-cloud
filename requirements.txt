@@ -1,10 +1,14 @@
 # Development Dependencies for RunPod ComfyUI Cloud Pod
-# These are only needed for development tools, NOT for the Docker image itself
+# ============================================================
+# These are ONLY for local development and testing
+# The Docker image has its own dependencies defined in the Dockerfile
+# ============================================================
 
-# Link verification and download scripts
+# Required for model download and link verification scripts
 requests>=2.31.0
 
-# Optional: For advanced model download features
-# urllib3>=2.0.0
-# tqdm>=4.66.0
+# Installation:
+# python3 -m venv .venv
+# source .venv/bin/activate
+# pip install -r requirements.txt
 
