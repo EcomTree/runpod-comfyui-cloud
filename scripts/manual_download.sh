@@ -155,9 +155,9 @@ echo "   or: tail -f /workspace/model_download.log"
 echo ""
 
 # Ask for confirmation unless running non-interactively
-# Check if stdout (file descriptor 1) is a TTY (interactive terminal), which works with 'docker exec -it'
-if [ -t 1 ]; then
-    echo "⚠️  This will download many large models!"
+# Check if stdin (file descriptor 0) is a TTY to determine if we can read user input
+if [ -t 0 ]; then
+    echo "⚠️ This will download many large models!"
     read -p "Continue? (y/N): " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then

@@ -57,7 +57,7 @@ echo "⬇️  Download Models: $DOWNLOAD_MODELS"
 if [ -n "$HF_TOKEN" ]; then
     echo "🔑 HF_TOKEN provided"
 else
-    echo "⚠️  No HF_TOKEN provided - some models may fail to download"
+    echo "⚠️ No HF_TOKEN provided - some models may fail to download"
 fi
 
 echo ""
@@ -148,7 +148,7 @@ echo "📁 Model directories status:"
 MODEL_DIRS=("checkpoints" "vae" "loras" "controlnet" "upscale_models" "unet" "clip" "t5" "clip_vision")
 for dir in "${MODEL_DIRS[@]}"; do
     if docker exec "$CONTAINER_NAME" test -d "/workspace/ComfyUI/models/$dir" 2>/dev/null; then
-        # Count model files (suppress stderr only from find to avoid noise from permission errors)
+        # Count model files (stderr suppression applies to entire pipeline, but only find produces permission errors)
         COUNT=$(docker exec "$CONTAINER_NAME" find "/workspace/ComfyUI/models/$dir" \( -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth" \) 2>/dev/null | wc -l || echo "0")
         SIZE=$(docker exec "$CONTAINER_NAME" du -sh "/workspace/ComfyUI/models/$dir" 2>/dev/null | cut -f1 || echo "0")
         echo "   $dir: $COUNT models ($SIZE)"
@@ -172,18 +172,17 @@ fi
 # Test ComfyUI API with enhanced error checking
 echo ""
 echo "🔌 Testing ComfyUI API endpoint..."
-if docker exec "$CONTAINER_NAME" curl -s -f http://localhost:8188/queue > /dev/null 2>&1; then
+# Execute curl inside container and capture both output and exit code
+COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" sh -c 'curl -s -f http://localhost:8188/queue; echo "EXIT_CODE:$?"' 2>/dev/null)
+CURL_EXIT_CODE=$(echo "$COMFYUI_QUEUE_OUTPUT" | grep -o 'EXIT_CODE:[0-9]*' | cut -d: -f2)
+COMFYUI_QUEUE_OUTPUT=$(echo "$COMFYUI_QUEUE_OUTPUT" | grep -v 'EXIT_CODE:')
+
+if [ "$CURL_EXIT_CODE" -eq 0 ]; then
     echo "✅ ComfyUI API is responding"
     echo "📊 ComfyUI status:"
-    COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" curl -s http://localhost:8188/queue 2>/dev/null)
-    CURL_EXIT_CODE=$?
-    if [ $CURL_EXIT_CODE -ne 0 ]; then
-        echo "Could not get queue status: curl failed (exit code $CURL_EXIT_CODE)"
-    else
-        echo "$COMFYUI_QUEUE_OUTPUT" | head -5 2>/dev/null || echo "Could not get queue status: head failed"
-    fi
+    echo "$COMFYUI_QUEUE_OUTPUT" | head -5 2>/dev/null || echo "Could not parse queue status"
 else
-    echo "❌ ComfyUI API is not responding"
+    echo "❌ ComfyUI API is not responding (curl exit code: $CURL_EXIT_CODE)"
     echo "🔍 ComfyUI logs:"
     docker exec "$CONTAINER_NAME" tail -15 /workspace/ComfyUI/user/comfyui.log 2>/dev/null || echo "No ComfyUI logs available"
 fi
@@ -191,8 +190,17 @@ fi
 # Test Jupyter Lab
 echo ""
 echo "📊 Testing Jupyter Lab..."
-if docker exec "$CONTAINER_NAME" curl -s -f http://localhost:8888/lab > /dev/null 2>&1; then
-    echo "✅ Jupyter Lab is responding"
+# Execute curl inside container and capture exit code properly
+# Try both /lab and / endpoints since Jupyter can redirect
+if docker exec "$CONTAINER_NAME" sh -c 'curl -s -f -L http://localhost:8888/ > /dev/null' 2>&1; then
+    JUPYTER_EXIT_CODE=$?
+    if [ $JUPYTER_EXIT_CODE -eq 0 ]; then
+        echo "✅ Jupyter Lab is responding"
+    else
+        echo "❌ Jupyter Lab is not responding (exit code: $JUPYTER_EXIT_CODE)"
+        echo "🔍 Jupyter logs:"
+        docker exec "$CONTAINER_NAME" tail -10 /workspace/jupyter.log 2>/dev/null || echo "No Jupyter logs available"
+    fi
 else
     echo "❌ Jupyter Lab is not responding"
     echo "🔍 Jupyter logs:"

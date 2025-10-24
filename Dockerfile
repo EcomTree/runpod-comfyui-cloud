@@ -174,7 +174,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
         # Activate virtual environment
         echo \"🔍 DEBUG: Activating virtual environment...\"
         source model_dl_venv/bin/activate || {
-            echo \"❌ Failed to activate virtual environment!\"
+            echo \"❌ Failed to activate virtual environment! Check /workspace/model_download.log for details\"
             exit 1
         }
 
@@ -386,16 +386,20 @@ echo "🔍 Checking model download status..."
 echo "🔧 Running enhanced model download script..."
 /usr/local/bin/download_comfyui_models.sh
 
-# Wait a moment for the background process to start and show initial logs
-echo "⏳ Waiting 5 seconds for model download to initialize..."
-sleep 5
+# Wait for the log file to be created by the background process
+echo "⏳ Waiting for model download log to be created..."
+WAIT_COUNT=0
+while [ ! -f "/workspace/model_download.log" ] && [ $WAIT_COUNT -lt 10 ]; do
+    sleep 1
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+done
 
 # Show the beginning of the model download log if it exists
 if [ -f "/workspace/model_download.log" ]; then
     echo "📋 Recent model download log entries:"
     tail -20 /workspace/model_download.log || true
 else
-    echo "⚠️  No model download log found yet"
+    echo "⚠️  No model download log found after 10 seconds (background process may not have started yet)"
 fi
 
 cd /workspace/ComfyUI
