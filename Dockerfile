@@ -218,8 +218,10 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
         echo \"✅ Model download finished!\"
     " > /workspace/model_download.log 2>&1 &
-
-    echo "✅ Model download started in background (PID: $!)"
+    
+    DOWNLOAD_PID=$!
+    echo "✅ Model download started in background (parent PID: $DOWNLOAD_PID)"
+    echo "   Use 'ps aux | grep download_models' to find the actual process"
 else
     echo "ℹ️  Model download skipped (DOWNLOAD_MODELS != true)"
     echo "🔍 DEBUG: DOWNLOAD_MODELS value was: '$DOWNLOAD_MODELS'"
