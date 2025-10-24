@@ -180,4 +180,4 @@ Siehe `comfyui_models_complete_library.md` für detaillierte Lizenzinformationen
 
 **Maintained by:** [@tensorvisuals](https://github.com/tensorvisuals)  
 **Status:** ✅ Production Ready  
-**Last Updated:** 2025-10-14
+**Last Updated:** 2025-10-24
