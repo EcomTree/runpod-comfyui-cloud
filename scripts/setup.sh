@@ -176,8 +176,8 @@ setup_comfyui() {
     
     for dir in "${model_dirs[@]}"; do
         mkdir -p "$WORKSPACE_DIR/ComfyUI/models/$dir"
-        # Create placeholder file
-        touch "$WORKSPACE_DIR/ComfyUI/models/$dir/put_${dir}_here"
+        # Create README file explaining the directory's purpose
+        echo "Place your ${dir} model files here." > "$WORKSPACE_DIR/ComfyUI/models/$dir/README.txt"
     done
     
     # Create other directories
