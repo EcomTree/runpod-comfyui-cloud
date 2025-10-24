@@ -214,7 +214,7 @@ echo "🔌 Testing ComfyUI API endpoint..."
 # Execute curl inside container and capture both output and exit code
 COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" curl -s -f http://localhost:8188/queue 2>/dev/null)
 CURL_EXIT_CODE=$?
-
+CURL_EXIT_CODE=$(echo "$COMFYUI_QUEUE_OUTPUT" | grep -o 'EXIT_CODE:[0-9]*$' | cut -d: -f2)
 
 
 # Check if curl inside docker exec failed
