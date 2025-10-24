@@ -93,7 +93,11 @@ fi
 if [ ! -d "ComfyUI/models" ]; then
     echo "❌ ComfyUI/models directory not found!"
     echo "💡 Creating model directories..."
-    mkdir -p ComfyUI/models/{checkpoints,vae,loras,controlnet,upscale_models,unet,clip,t5,clip_vision,animatediff_models,ipadapter,text_encoders,diffusion_models}
+    # Define model directories array for maintainability
+    MODEL_SUBDIRS=(checkpoints vae loras controlnet upscale_models unet clip t5 clip_vision animatediff_models ipadapter text_encoders diffusion_models)
+    for dir in "${MODEL_SUBDIRS[@]}"; do
+        mkdir -p "ComfyUI/models/$dir"
+    done
 fi
 
 echo "✅ ComfyUI found"
