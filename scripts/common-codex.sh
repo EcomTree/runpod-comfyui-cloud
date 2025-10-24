@@ -114,7 +114,7 @@ ensure_system_packages() {
     local missing=()
 
     for pkg in "${packages[@]}"; do
-        if command_exists "$pkg"; then
+        if command_exists "$pkg" || dpkg -s "$pkg" >/dev/null 2>&1; then
             log_success "$pkg available"
         else
             missing+=("$pkg")
