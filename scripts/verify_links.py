@@ -225,20 +225,60 @@ def get_max_workers():
 
 def main():
     """Main function."""
-    # Find the markdown file relative to the script location
-    script_dir = Path(__file__).parent
-    markdown_file = script_dir.parent / 'comfyui_models_complete_library.md'
-    
-    # If running from /workspace (Docker), try there too
-    if not markdown_file.exists():
-        markdown_file = Path('/workspace/comfyui_models_complete_library.md')
-    
+    print("🔍 DEBUG: Starting link verification...")
+
+    # Multiple possible locations for the markdown file
+    possible_paths = [
+        Path('/opt/runpod/comfyui_models_complete_library.md'),  # Docker source
+        Path('/workspace/comfyui_models_complete_library.md'),    # Docker destination
+        Path(__file__).parent.parent / 'comfyui_models_complete_library.md',  # Local dev
+    ]
+
+    markdown_file = None
+    for path in possible_paths:
+        print(f"🔍 DEBUG: Checking for markdown file at: {path}")
+        if path.exists():
+            markdown_file = path
+            print(f"✅ Found markdown file: {path}")
+            break
+
+    if not markdown_file:
+        print("❌ comfyui_models_complete_library.md not found in any location!")
+        print("🔍 DEBUG: Tried paths:")
+        for path in possible_paths:
+            print(f"   {path} - {'EXISTS' if path.exists() else 'NOT FOUND'}")
+
+        print("\n🔍 DEBUG: Available files in key directories:")
+        for path in [Path('/opt/runpod'), Path('/workspace'), Path(__file__).parent.parent]:
+            if path.exists():
+                try:
+                    files = list(path.glob('*.md'))
+                    if files:
+                        print(f"   {path}:")
+                        for f in files:
+                            print(f"     - {f.name}")
+                    else:
+                        print(f"   {path}: (no .md files)")
+                except Exception as e:
+                    print(f"   {path}: (error: {e})")
+
+        sys.exit(1)
+
     # Read the markdown file
     try:
+        print(f"📖 Reading markdown file: {markdown_file}")
         with open(markdown_file, 'r', encoding='utf-8') as f:
             content = f.read()
-    except FileNotFoundError:
-        print(f"❌ comfyui_models_complete_library.md not found at {markdown_file}!")
+        print(f"✅ Successfully read {len(content)} characters from markdown file")
+
+        # Debug: Show first few lines
+        lines = content.split('\n')[:10]
+        print("🔍 DEBUG: First 10 lines of markdown file:")
+        for i, line in enumerate(lines, 1):
+            print(f"   {i"2d"}: {line}")
+
+    except Exception as e:
+        print(f"❌ Error reading markdown file: {e}")
         sys.exit(1)
 
     # Extract links

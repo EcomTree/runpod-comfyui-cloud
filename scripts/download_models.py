@@ -95,13 +95,65 @@ class ComfyUIModelDownloader:
 
     def load_verified_links(self):
         """Loads the verified links from the JSON file."""
+        print(f"🔍 DEBUG: Looking for verification file: {self.verification_file}")
+
+        # Check if verification file exists
+        if not os.path.exists(self.verification_file):
+            print(f"❌ Verification file {self.verification_file} not found!")
+
+            # Try alternative locations
+            alternative_paths = [
+                "/workspace/link_verification_results.json",
+                "link_verification_results.json",
+                "./link_verification_results.json"
+            ]
+
+            print("🔍 DEBUG: Trying alternative paths...")
+            for alt_path in alternative_paths:
+                print(f"   Checking: {alt_path}")
+                if os.path.exists(alt_path):
+                    print(f"✅ Found verification file at: {alt_path}")
+                    self.verification_file = alt_path
+                    break
+            else:
+                print("❌ No verification file found in any location!")
+                print("🔍 Available JSON files in /workspace:")
+                try:
+                    result = subprocess.run(['find', '/workspace', '-name', '*.json', '-type', 'f'],
+                                          capture_output=True, text=True, timeout=10)
+                    if result.stdout:
+                        print(result.stdout)
+                    if result.stderr:
+                        print(f"Error: {result.stderr}")
+                except Exception as e:
+                    print(f"Error searching for JSON files: {e}")
+
+                print("\n🔧 SOLUTION: Run link verification first:")
+                print("   python3 scripts/verify_links.py")
+                sys.exit(1)
+
         try:
+            print(f"📖 Loading verification file: {self.verification_file}")
             with open(self.verification_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return data.get('valid_links', [])
-        except FileNotFoundError:
-            print(f"❌ Verification file {self.verification_file} not found!")
-            print("🔍 Run 'python3 scripts/verify_links.py' first.")
+                valid_links = data.get('valid_links', [])
+                print(f"✅ Loaded {len(valid_links)} valid links")
+
+                if not valid_links:
+                    print("⚠️  Warning: No valid links found in verification file!")
+                    print("🔍 DEBUG: Verification file contents:")
+                    print(json.dumps(data, indent=2)[:500] + "..." if len(json.dumps(data, indent=2)) > 500 else json.dumps(data, indent=2))
+
+                return valid_links
+
+        except json.JSONDecodeError as e:
+            print(f"❌ Invalid JSON in verification file: {e}")
+            print("🔧 SOLUTION: Delete the corrupted file and run verification again:")
+            print(f"   rm {self.verification_file}")
+            print("   python3 scripts/verify_links.py")
+            sys.exit(1)
+        except Exception as e:
+            print(f"❌ Error loading verification file: {e}")
             sys.exit(1)
 
     def determine_target_directory(self, url):

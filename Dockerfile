@@ -85,6 +85,10 @@ RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
 DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-false}
 HF_TOKEN=${HF_TOKEN:-}
 
+echo "🔍 DEBUG: Environment variables:"
+echo "   DOWNLOAD_MODELS='$DOWNLOAD_MODELS'"
+echo "   HF_TOKEN='${HF_TOKEN:0:10}...'"  # Show first 10 chars only for security
+
 if [ "$DOWNLOAD_MODELS" = "true" ]; then
     echo "🚀 Starting automatic download of ComfyUI models in background..."
     echo "📁 This may take a long time and require significant storage!"
@@ -95,9 +99,58 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
     LIBRARY_SOURCE="/opt/runpod/comfyui_models_complete_library.md"
     LIBRARY_DEST="/workspace/comfyui_models_complete_library.md"
-    if [ -f "$LIBRARY_SOURCE" ] && [ ! -f "$LIBRARY_DEST" ]; then
-        echo "📄 Syncing comfyui_models_complete_library.md into /workspace"
-        cp "$LIBRARY_SOURCE" "$LIBRARY_DEST"
+
+    echo "🔍 DEBUG: Checking library file..."
+    if [ -f "$LIBRARY_SOURCE" ]; then
+        echo "✅ Library source found: $LIBRARY_SOURCE"
+        ls -lh "$LIBRARY_SOURCE"
+    else
+        echo "❌ Library source NOT found: $LIBRARY_SOURCE"
+        echo "Available files in /opt/runpod/:"
+        ls -la /opt/runpod/ || true
+    fi
+
+    if [ ! -f "$LIBRARY_DEST" ]; then
+        echo "📄 Copying comfyui_models_complete_library.md into /workspace"
+        cp "$LIBRARY_SOURCE" "$LIBRARY_DEST" 2>/dev/null || {
+            echo "❌ Failed to copy library file!"
+            echo "Source: $LIBRARY_SOURCE"
+            echo "Destination: $LIBRARY_DEST"
+        }
+    else
+        echo "✅ Library destination already exists: $LIBRARY_DEST"
+    fi
+
+    # Check if virtual environment exists
+    echo "🔍 DEBUG: Checking virtual environment..."
+    if [ -d "model_dl_venv" ]; then
+        echo "✅ Virtual environment found"
+        echo "🔍 DEBUG: Checking activation script..."
+        if [ -f "model_dl_venv/bin/activate" ]; then
+            echo "✅ Activation script found"
+        else
+            echo "❌ Activation script missing!"
+        fi
+    else
+        echo "❌ Virtual environment not found!"
+        echo "Available directories in /workspace:"
+        ls -la /workspace/ | grep -E "^d" || true
+    fi
+
+    # Check if scripts exist
+    echo "🔍 DEBUG: Checking download scripts..."
+    if [ -f "/workspace/scripts/verify_links.py" ]; then
+        echo "✅ verify_links.py found"
+    else
+        echo "❌ verify_links.py NOT found"
+        echo "Available files in /workspace/scripts/:"
+        ls -la /workspace/scripts/ || true
+    fi
+
+    if [ -f "/workspace/scripts/download_models.py" ]; then
+        echo "✅ download_models.py found"
+    else
+        echo "❌ download_models.py NOT found"
     fi
 
     # Run model download in background with logging
@@ -105,26 +158,56 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     # Using 'env' ensures the variable is properly propagated to all child processes
     env HF_TOKEN="${HF_TOKEN}" nohup bash -c "
         set -e
-        
+
+        echo \"🔍 DEBUG: Inside background process\"
+        echo \"   Working directory: \$(pwd)\"
+        echo \"   HF_TOKEN set: \$(if [ -n \"\$HF_TOKEN\" ]; then echo 'YES'; else echo 'NO'; fi)\"
+
         # Activate virtual environment
-        source model_dl_venv/bin/activate
+        echo \"🔍 DEBUG: Activating virtual environment...\"
+        source model_dl_venv/bin/activate || {
+            echo \"❌ Failed to activate virtual environment!\"
+            exit 1
+        }
 
         # Verify links (if not already done)
+        echo \"🔍 DEBUG: Checking for link verification results...\"
         if [ ! -f \"link_verification_results.json\" ]; then
             echo \"🔍 Checking link accessibility...\"
-            python3 /workspace/scripts/verify_links.py
+            python3 /workspace/scripts/verify_links.py || {
+                echo \"❌ Link verification failed!\"
+                echo \"   Exit code: \$?\"
+            }
+        else
+            echo \"✅ Link verification already completed\"
+        fi
+
+        # Check if verification results exist
+        if [ -f \"link_verification_results.json\" ]; then
+            echo \"✅ Verification results found\"
+            echo \"🔍 DEBUG: Verification results preview:\"
+            head -5 link_verification_results.json || true
+        else
+            echo \"❌ No verification results found!\"
+            echo \"Available JSON files:\"
+            find . -name \"*.json\" -type f 2>/dev/null || true
         fi
 
         # Download models
         echo \"⬇️  Starting model download...\"
-        python3 /workspace/scripts/download_models.py /workspace
+        python3 /workspace/scripts/download_models.py /workspace || {
+            echo \"❌ Model download failed!\"
+            echo \"   Exit code: \$?\"
+        }
 
         echo \"✅ Model download finished!\"
     " > /workspace/model_download.log 2>&1 &
-    
+
     echo "✅ Model download started in background (PID: $!)"
 else
     echo "ℹ️  Model download skipped (DOWNLOAD_MODELS != true)"
+    echo "🔍 DEBUG: DOWNLOAD_MODELS value was: '$DOWNLOAD_MODELS'"
+    echo "🔍 DEBUG: Expected value: 'true'"
 fi
 EOF
 
@@ -288,7 +371,20 @@ export TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
 
 # Download models if requested
 echo "🔍 Checking model download status..."
+echo "🔧 Running enhanced model download script..."
 /usr/local/bin/download_comfyui_models.sh
+
+# Wait a moment for the background process to start and show initial logs
+echo "⏳ Waiting 5 seconds for model download to initialize..."
+sleep 5
+
+# Show the beginning of the model download log if it exists
+if [ -f "/workspace/model_download.log" ]; then
+    echo "📋 Recent model download log entries:"
+    tail -20 /workspace/model_download.log || true
+else
+    echo "⚠️  No model download log found yet"
+fi
 
 cd /workspace/ComfyUI
 
