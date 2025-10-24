@@ -158,7 +158,7 @@ else
     for dir in "${MODEL_DIRS[@]}"; do
         if docker exec "$CONTAINER_NAME" test -d "/workspace/ComfyUI/models/$dir" 2>/dev/null; then
             # Count model files - wrap entire pipeline in subshell with error suppression
-            COUNT_OUTPUT=$(docker exec "$CONTAINER_NAME" sh -c "(find '/workspace/ComfyUI/models/$dir' \\( -name '*.safetensors' -o -name '*.ckpt' -o -name '*.pth' \\) 2>/dev/null | wc -l) || echo '0'")
+            COUNT_OUTPUT=$(docker exec "$CONTAINER_NAME" sh -c "( (find '/workspace/ComfyUI/models/$dir' \\( -name '*.safetensors' -o -name '*.ckpt' -o -name '*.pth' \\) | wc -l) 2>/dev/null ) || echo '0'")
             COUNT_EXIT=$?
             
             if [ $COUNT_EXIT -ne 0 ]; then
@@ -215,7 +215,7 @@ echo ""
 echo "🔌 Testing ComfyUI API endpoint..."
 # Use a temporary file to store curl output inside the container for more reliable exit code capture
 TMP_CURL_OUT="/tmp/comfyui_api_test_$$.out"
-docker exec "$CONTAINER_NAME" sh -c "curl -s -f http://localhost:8188/queue 2>/dev/null > $TMP_CURL_OUT" 2>/dev/null
+docker exec "$CONTAINER_NAME" sh -c "curl -s -f http://localhost:8188/queue > $TMP_CURL_OUT" 2>/dev/null
 CURL_EXIT_CODE=$?
 COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" cat "$TMP_CURL_OUT" 2>/dev/null)
 # Clean up temporary file

@@ -174,7 +174,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
         # Activate virtual environment
         echo \"🔍 DEBUG: Activating virtual environment...\"
         source model_dl_venv/bin/activate || {
-            echo \"❌ Failed to activate virtual environment! Check /workspace/model_download.log for details\"
+            echo \"❌ Failed to activate virtual environment!\"
             exit 1
         }
 
@@ -182,13 +182,12 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
         echo \"🔍 DEBUG: Checking for link verification results...\"
         if [ ! -f \"link_verification_results.json\" ]; then
             echo \"🔍 Checking link accessibility...\"
-            python3 /workspace/scripts/verify_links.py
-            verify_exit=\$?
-            if [ \$verify_exit -ne 0 ]; then
+            if ! python3 /workspace/scripts/verify_links.py; then
+                verify_exit=\$?
                 echo \"❌ Link verification failed!\"
                 echo \"   Exit code: \$verify_exit\"
                 echo \"   Check /workspace/model_download.log for details\"
-                exit 1
+                exit \$verify_exit
             fi
         else
             echo \"✅ Link verification already completed\"
@@ -207,13 +206,12 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
         # Download models
         echo \"⬇️  Starting model download...\"
-        python3 /workspace/scripts/download_models.py /workspace
-        download_exit=\$?
-        if [ \$download_exit -ne 0 ]; then
+        if ! python3 /workspace/scripts/download_models.py /workspace; then
+            download_exit=\$?
             echo \"❌ Model download failed!\"
             echo \"   Exit code: \$download_exit\"
             echo \"   Check /workspace/model_download.log for details\"
-            exit 1
+            exit \$download_exit
         fi
 
         echo \"✅ Model download finished!\"
@@ -221,7 +219,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     
     DOWNLOAD_PID=$!
     echo "✅ Model download started in background (nohup wrapper PID: $DOWNLOAD_PID)"
-    echo "   Note: This is the PID of the nohup wrapper, not the actual download process."
+    echo "   Note: This is the PID of the wrapper process, not the actual Python script."
     echo "   Use 'pgrep -f download_models.py' to find the actual process PID."
 else
     echo "ℹ️  Model download skipped (DOWNLOAD_MODELS != true)"

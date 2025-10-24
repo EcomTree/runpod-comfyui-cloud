@@ -117,28 +117,28 @@ class ComfyUIModelDownloader:
                     break
             else:
                 print("❌ No verification file found in any location!")
-                print("🔍 Searching for JSON files in likely /workspace subdirectories...")
+                print("🔍 Searching for JSON files in likely /workspace subdirectories (this may take a moment)...")
                 try:
-                    # Limit search to specific subdirectories with shallow depth for better performance
+                    # Limit search to specific subdirectories and reduce maxdepth to avoid issues in large filesystems
                     search_dirs = ['/workspace', '/workspace/models', '/workspace/data', '/workspace/ComfyUI']
                     found_files = []
-                    for search_dir in search_dirs:
+                    for d in search_dirs:
                         try:
-                            result = subprocess.run(['find', search_dir, '-maxdepth', '2', '-name', '*.json', '-type', 'f'],
+                            result = subprocess.run(['find', d, '-maxdepth', '2', '-name', '*.json', '-type', 'f'],
                                                   capture_output=True, text=True, timeout=10)
                             if result.stdout:
                                 found_files.extend([f.strip() for f in result.stdout.strip().split('\n') if f.strip()])
+                            elif result.returncode != 0 and result.stderr:
+                                print(f"Search warning in {d}: {result.stderr}")
                         except subprocess.TimeoutExpired:
-                            print(f"⚠️  Search in {search_dir} timed out - skipping")
+                            print(f"⚠️  Search in {d} timed out (>10s) - skipping")
                         except Exception as e:
-                            print(f"⚠️  Search warning in {search_dir}: {e}")
+                            print(f"⚠️  Error searching in {d} ({type(e).__name__}): {e}")
                     
                     if found_files:
                         print("\n".join([f"  {f}" for f in found_files]))
                     else:
                         print("No JSON files found in searched directories")
-                except subprocess.TimeoutExpired:
-                    print("⚠️  Search timed out (filesystem too large) - skipping file listing")
                 except Exception as e:
                     print(f"⚠️  Error searching for JSON files ({type(e).__name__}): {e}")
 

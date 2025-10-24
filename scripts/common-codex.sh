@@ -16,6 +16,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# CUDA version requirements
+MIN_CUDA_MAJOR=12
+MIN_CUDA_MINOR=8
+
 # Logging functions
 log_info() {
     echo -e "${BLUE}ℹ️  $1${NC}"
@@ -300,12 +304,12 @@ except Exception as e:
                                 local major="${BASH_REMATCH[1]}"
                                 local minor="${BASH_REMATCH[2]}"
                                 
-                                # Check if version >= 12.8
-                                if [ "$major" -gt 12 ] || { [ "$major" -eq 12 ] && [ "$minor" -ge 8 ]; }; then
-                                    log_success "CUDA version is compatible (>= 12.8)"
+                                # Check if version meets minimum requirements
+                                if [ "$major" -gt "$MIN_CUDA_MAJOR" ] || { [ "$major" -eq "$MIN_CUDA_MAJOR" ] && [ "$minor" -ge "$MIN_CUDA_MINOR" ]; }; then
+                                    log_success "CUDA version is compatible (>= ${MIN_CUDA_MAJOR}.${MIN_CUDA_MINOR})"
                                     return 0
                                 else
-                                    log_warning "CUDA version $cuda_ver is below recommended 12.8+"
+                                    log_warning "CUDA version $cuda_ver is below recommended ${MIN_CUDA_MAJOR}.${MIN_CUDA_MINOR}+"
                                     return 0  # Don't fail, just warn
                                 fi
                             else
