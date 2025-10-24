@@ -17,10 +17,15 @@ PROJECT_NAME="runpod-comfyui-cloud"
 COMFYUI_REPO="https://github.com/comfyanonymous/ComfyUI.git"
 COMFYUI_MANAGER_REPO="https://github.com/ltdrdata/ComfyUI-Manager.git"
 
+# API endpoint constants
+COMFYUI_QUEUE_ENDPOINT="/queue"
+JUPYTER_ROOT_ENDPOINT="/"
+
 # Get script directory
 get_script_dir() {
     local source="${BASH_SOURCE[0]:-$0}"
-    local dir="$(dirname "$source")"
+    local dir
+    dir="$(dirname "$source")"
     if [[ -d "$dir" ]]; then
         (cd "$dir" && pwd)
     else
@@ -198,7 +203,8 @@ setup_python_environment() {
         exit 1
     fi
     
-    local python_version=$(python3 --version 2>&1 | awk '{print $2}')
+    local python_version
+    python_version=$(python3 --version 2>&1 | awk '{print $2}')
     log_info "Python version: $python_version"
     
     # Upgrade pip
@@ -271,7 +277,19 @@ download_models() {
         local download_pid=$!
         
         # Trap to clean up background download process if script exits or is interrupted
-        trap "if kill -0 $download_pid 2>/dev/null; then log_info 'Cleaning up model download process (PID: $download_pid)'; kill $download_pid; fi" EXIT INT TERM
+        # Uses graceful SIGTERM first, then SIGKILL if process doesn't exit
+        trap 'if kill -0 '"$download_pid"' 2>/dev/null; then \
+            log_info "Cleaning up model download process (PID: '"$download_pid"')"; \
+            kill -TERM '"$download_pid"' 2>/dev/null; \
+            for i in {1..5}; do \
+                sleep 1; \
+                if ! kill -0 '"$download_pid"' 2>/dev/null; then break; fi; \
+            done; \
+            if kill -0 '"$download_pid"' 2>/dev/null; then \
+                log_info "Model download process did not exit after SIGTERM, sending SIGKILL"; \
+                kill -KILL '"$download_pid"' 2>/dev/null; \
+            fi; \
+        fi' EXIT INT TERM
         
         log_info "Model download started (PID: $download_pid)"
         log_info "Monitor progress: tail -f $WORKSPACE_DIR/logs/model_download.log"
@@ -367,17 +385,15 @@ validate_setup() {
     
     # Check services (if in Codex)
     if [ "$IN_CODEX" = true ]; then
-        sleep 10  # Give services time to start
-        
-        # Check ComfyUI
-        if curl -sSf http://localhost:${COMFYUI_PORT:-8188}/queue >/dev/null 2>&1; then
+        # Check ComfyUI with robust wait mechanism
+        if wait_for_service "http://localhost:${COMFYUI_PORT:-8188}${COMFYUI_QUEUE_ENDPOINT}" "ComfyUI API" 30 2; then
             log_success "✓ ComfyUI API responding"
         else
             log_warning "✗ ComfyUI API not responding yet (may need more time)"
         fi
         
-        # Check Jupyter
-        if curl -sSf http://localhost:${JUPYTER_PORT:-8888}/ >/dev/null 2>&1; then
+        # Check Jupyter with robust wait mechanism
+        if wait_for_service "http://localhost:${JUPYTER_PORT:-8888}${JUPYTER_ROOT_ENDPOINT}" "Jupyter Lab" 30 2; then
             log_success "✓ Jupyter Lab responding"
         else
             log_warning "✗ Jupyter Lab not responding yet (may need more time)"

@@ -19,19 +19,19 @@ MIN_CUDA_MINOR=8
 
 # Logging functions
 log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    printf "%b\n" "${BLUE}ℹ️  $1${NC}"
 }
 
 log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    printf "%b\n" "${GREEN}✅ $1${NC}"
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}" >&2
+    printf "%b\n" "${YELLOW}⚠️  $1${NC}" >&2
 }
 
 log_error() {
-    echo -e "${RED}❌ $1${NC}" >&2
+    printf "%b\n" "${RED}❌ $1${NC}" >&2
 }
 
 # Alias functions for compatibility with echo_* naming convention
@@ -114,8 +114,10 @@ ensure_system_packages() {
     local missing=()
 
     for pkg in "${packages[@]}"; do
-        if command_exists "$pkg" || dpkg -s "$pkg" >/dev/null 2>&1; then
-            log_success "$pkg available"
+        if dpkg -s "$pkg" >/dev/null 2>&1; then
+            log_success "$pkg available (package present)"
+        elif command_exists "$pkg"; then
+            log_success "$pkg available (command found)"
         else
             missing+=("$pkg")
         fi
