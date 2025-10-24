@@ -220,7 +220,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     " > /workspace/model_download.log 2>&1 &
     
     DOWNLOAD_PID=$!
-    echo "✅ Model download started in background (nohup wrapper PID: $DOWNLOAD_PID)"
+    echo "✅ Model download started in background (nohup process PID: $DOWNLOAD_PID)"
     echo "   Use 'ps aux | grep download_models' to find the actual process"
 else
     echo "ℹ️  Model download skipped (DOWNLOAD_MODELS != true)"
