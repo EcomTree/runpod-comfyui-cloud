@@ -105,6 +105,14 @@ echo "This may take a few minutes..."
 echo ""
 
 source model_dl_venv/bin/activate
+
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo "❌ Failed to activate virtual environment!"
+    exit 1
+fi
+
+echo "✅ Virtual environment activated: $VIRTUAL_ENV"
+
 python3 scripts/verify_links.py
 
 if [ ! -f "link_verification_results.json" ]; then
