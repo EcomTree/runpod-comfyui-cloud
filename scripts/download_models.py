@@ -124,14 +124,18 @@ class ComfyUIModelDownloader:
                     per_dir_timeout = int(os.getenv("FIND_TIMEOUT_SECONDS", "10"))
                     max_list = int(os.getenv("FIND_MAX_RESULTS", "100"))
                     found_files = []
-                    for d in search_dirs:
-                        try:
-                            result = subprocess.run(['find', d, '-maxdepth', '2', '-name', '*.json', '-type', 'f'],
-                                                  capture_output=True, text=True, timeout=per_dir_timeout)
-                            if result.stdout:
-                                found_files.extend([f.strip() for f in result.stdout.strip().split('\n') if f.strip()])
-                            elif result.returncode != 0 and result.stderr:
-                                print(f"Search warning in {d}: {result.stderr}")
+                            # Use os.walk to traverse up to depth 2
+                            for root, dirs, files in os.walk(d):
+                                # Calculate depth relative to the search directory
+                                rel_path = os.path.relpath(root, d)
+                                depth = 0 if rel_path == '.' else rel_path.count(os.sep) + 1
+                                if depth > 2:
+                                    # Prevent descending further
+                                    dirs[:] = []
+                                    continue
+                                for file in files:
+                                    if file.endswith('.json'):
+                                        found_files.append(os.path.join(root, file))
                         except subprocess.TimeoutExpired:
                             print(f"⚠️  Search in {d} timed out (>{per_dir_timeout}s) - skipping")
                         except (subprocess.SubprocessError, OSError) as e:
