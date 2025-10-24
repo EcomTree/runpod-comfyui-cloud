@@ -250,7 +250,6 @@ def main():
 
         print("\n🔍 DEBUG: Available files in key directories:")
         # Extract unique parent directories from possible_paths, preserving order
-        # This preserves the order of first appearance.
         parent_dirs = list(dict.fromkeys(p.parent.resolve() for p in possible_paths))
         for path in parent_dirs:
             if path.exists():
