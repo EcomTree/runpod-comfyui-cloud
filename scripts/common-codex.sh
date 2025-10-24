@@ -3,7 +3,7 @@
 # Provides shared utilities for RunPod ComfyUI Cloud setup
 # Enhanced with features from serverless project
 
-set -euo pipefail
+set -eo pipefail
 
 # Prevent multiple loading
 if [[ -z "${CODEX_COMMON_HELPERS_LOADED:-}" ]]; then
