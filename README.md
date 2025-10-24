@@ -20,7 +20,7 @@ Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPU
 ## 🎯 Supported Hardware
 
 | GPU           | VRAM      | Cost/Hr   | Status          | Use Case                     |
-| ------------- | --------- | --------- | --------------- | ---------------------------- |
+| ---------     | --------- | --------- | ---------       | ---------                    |
 | **RTX 5090**  | 24GB      | **$0.69** | ✅ **Optimal**  | **Development & Production** |
 | **H200**      | 80GB HBM3 | $3.59     | ✅ Premium      | Heavy workloads              |
 | **H100 80GB** | 80GB      | ~$2.50    | ✅ Available    | Enterprise                   |
