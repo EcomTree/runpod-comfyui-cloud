@@ -155,7 +155,7 @@ echo "   or: tail -f /workspace/model_download.log"
 echo ""
 
 # Ask for confirmation unless running non-interactively
-# Check if stdin (file descriptor 0) is a TTY to determine if we can read user input
+# Check if running in interactive terminal
 if [ -t 0 ]; then
     echo "⚠️ This will download many large models!"
     read -p "Continue? (y/N): " -n 1 -r
