@@ -211,11 +211,9 @@ fi
 # Test ComfyUI API with enhanced error checking
 echo ""
 echo "🔌 Testing ComfyUI API endpoint..."
-# Execute curl inside container and capture both output and exit code
+# Execute curl inside container and capture exit code directly
 COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" curl -s -f http://localhost:8188/queue 2>/dev/null)
 CURL_EXIT_CODE=$?
-CURL_EXIT_CODE=$(echo "$COMFYUI_QUEUE_OUTPUT" | grep -o 'EXIT_CODE:[0-9]*$' | cut -d: -f2)
-
 
 # Check if curl inside docker exec failed
 if [ "$CURL_EXIT_CODE" -ne 0 ]; then
@@ -230,10 +228,6 @@ else
     echo "✅ ComfyUI API is responding"
     echo "📊 ComfyUI status:"
     echo "$COMFYUI_QUEUE_OUTPUT" | head -5 2>/dev/null || echo "Could not parse queue status"
-fi
-    echo "❌ ComfyUI API is not responding (curl exit code: $CURL_EXIT_CODE)"
-    echo "🔍 ComfyUI logs:"
-    docker exec "$CONTAINER_NAME" tail -15 /workspace/ComfyUI/user/comfyui.log 2>/dev/null || echo "No ComfyUI logs available"
 fi
 
 # Test Jupyter Lab
