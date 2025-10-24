@@ -269,5 +269,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 ---
 
 **Maintained by:** [@tensorvisuals](https://github.com/tensorvisuals)  
+> Maintainer change from [@sebastianhein](https://github.com/sebastianhein) to [@tensorvisuals](https://github.com/tensorvisuals) has been coordinated with all stakeholders.
 **Status:** ✅ Production Ready  
 **Last Updated:** 2025-10-24
