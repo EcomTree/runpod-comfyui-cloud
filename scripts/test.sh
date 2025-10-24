@@ -212,26 +212,25 @@ fi
 echo ""
 echo "🔌 Testing ComfyUI API endpoint..."
 # Execute curl inside container and capture both output and exit code
-COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" sh -c 'curl -s -f http://localhost:8188/queue; echo "EXIT_CODE:$?"' 2>/dev/null)
-DOCKER_EXEC_EXIT_CODE=$?
-CURL_EXIT_CODE=$(echo "$COMFYUI_QUEUE_OUTPUT" | grep -o 'EXIT_CODE:[0-9]*' | cut -d: -f2)
-COMFYUI_QUEUE_OUTPUT=$(echo "$COMFYUI_QUEUE_OUTPUT" | grep -v 'EXIT_CODE:')
+COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" curl -s -f http://localhost:8188/queue 2>/dev/null)
+CURL_EXIT_CODE=$?
 
-# First, check if docker exec itself failed
-if [ $DOCKER_EXEC_EXIT_CODE -ne 0 ]; then
-    echo "❌ docker exec failed (exit code: $DOCKER_EXEC_EXIT_CODE)"
+
+
+# Check if curl inside docker exec failed
+if [ "$CURL_EXIT_CODE" -ne 0 ]; then
+    echo "❌ ComfyUI API request failed (curl exit code: $CURL_EXIT_CODE)"
     echo "🔍 ComfyUI logs:"
     docker exec "$CONTAINER_NAME" tail -15 /workspace/ComfyUI/user/comfyui.log 2>/dev/null || echo "No ComfyUI logs available"
-# Next, check if we could extract the curl exit code
-elif [ -z "$CURL_EXIT_CODE" ]; then
-    echo "❌ Failed to extract curl exit code (curl command failed to produce output)"
+elif [ -z "$COMFYUI_QUEUE_OUTPUT" ]; then
+    echo "❌ No output from ComfyUI API (curl command failed to produce output)"
     echo "🔍 ComfyUI logs:"
     docker exec "$CONTAINER_NAME" tail -15 /workspace/ComfyUI/user/comfyui.log 2>/dev/null || echo "No ComfyUI logs available"
-elif [ "$CURL_EXIT_CODE" -eq 0 ]; then
+else
     echo "✅ ComfyUI API is responding"
     echo "📊 ComfyUI status:"
     echo "$COMFYUI_QUEUE_OUTPUT" | head -5 2>/dev/null || echo "Could not parse queue status"
-else
+fi
     echo "❌ ComfyUI API is not responding (curl exit code: $CURL_EXIT_CODE)"
     echo "🔍 ComfyUI logs:"
     docker exec "$CONTAINER_NAME" tail -15 /workspace/ComfyUI/user/comfyui.log 2>/dev/null || echo "No ComfyUI logs available"
