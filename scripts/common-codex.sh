@@ -91,7 +91,7 @@ file_exists() {
 
 # Check if a directory exists and is accessible
 dir_exists() {
-    [ -d "$1" ] && [ -r "$1" ]
+    [ -d "$1" ] && [ -x "$1" ]
 }
 
 # Download a file with error handling
@@ -103,7 +103,7 @@ download_file() {
     log_info "Downloading $description from $url..."
     
     if command_exists curl; then
-        if curl -fsSL "$url" -o "$output"; then
+        if curl -fsSL --retry 3 --retry-delay 2 --retry-connrefused "$url" -o "$output"; then
             log_success "Downloaded $description successfully"
             return 0
         else
@@ -111,7 +111,7 @@ download_file() {
             return 1
         fi
     elif command_exists wget; then
-        if wget -q --show-progress -O "$output" "$url"; then
+        if wget -q --show-progress --tries=3 --waitretry=2 -O "$output" "$url"; then
             log_success "Downloaded $description successfully"
             return 0
         else
@@ -130,8 +130,8 @@ install_system_packages() {
     local missing=()
 
     for pkg in "${packages[@]}"; do
-        if command_exists "$pkg"; then
-            log_success "$pkg available"
+        if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
+            log_success "$pkg installed"
         else
             missing+=("$pkg")
         fi
@@ -168,7 +168,7 @@ install_system_packages() {
     fi
 
     for pkg in "${missing[@]}"; do
-        if command_exists "$pkg"; then
+        if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
             log_success "$pkg installed"
         else
             log_warning "$pkg installation failed"
@@ -214,6 +214,10 @@ setup_python_env() {
     
     if [ -d "$venv_path" ]; then
         log_warning "Virtual environment already exists at $venv_path"
+        if file_exists "$requirements_file"; then
+            log_info "Upgrading requirements in existing venv..."
+            "$venv_path/bin/pip" install -r "$requirements_file"
+        fi
         return 0
     fi
     
@@ -400,7 +404,7 @@ wait_for_service() {
     
     local attempt=1
     while [ $attempt -le $max_attempts ]; do
-        if curl -s -f "$url" >/dev/null 2>&1; then
+        if curl -sSf --connect-timeout 2 --max-time 5 "$url" >/dev/null 2>&1; then
             log_success "$service_name is ready!"
             return 0
         fi

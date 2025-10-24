@@ -121,25 +121,30 @@ class ComfyUIModelDownloader:
                 try:
                     # Limit search to specific subdirectories and reduce maxdepth to avoid issues in large filesystems
                     search_dirs = ['/workspace', '/workspace/models', '/workspace/data', '/workspace/ComfyUI']
+                    per_dir_timeout = int(os.getenv("FIND_TIMEOUT_SECONDS", "10"))
+                    max_list = int(os.getenv("FIND_MAX_RESULTS", "100"))
                     found_files = []
                     for d in search_dirs:
                         try:
                             result = subprocess.run(['find', d, '-maxdepth', '2', '-name', '*.json', '-type', 'f'],
-                                                  capture_output=True, text=True, timeout=10)
+                                                  capture_output=True, text=True, timeout=per_dir_timeout)
                             if result.stdout:
                                 found_files.extend([f.strip() for f in result.stdout.strip().split('\n') if f.strip()])
                             elif result.returncode != 0 and result.stderr:
                                 print(f"Search warning in {d}: {result.stderr}")
                         except subprocess.TimeoutExpired:
-                            print(f"⚠️  Search in {d} timed out (>10s) - skipping")
-                        except Exception as e:
+                            print(f"⚠️  Search in {d} timed out (>{per_dir_timeout}s) - skipping")
+                        except (subprocess.SubprocessError, OSError) as e:
                             print(f"⚠️  Error searching in {d} ({type(e).__name__}): {e}")
                     
                     if found_files:
-                        print("\n".join([f"  {f}" for f in found_files]))
+                        for f in found_files[:max_list]:
+                            print(f"  {f}")
+                        if len(found_files) > max_list:
+                            print(f"  ... (+{len(found_files)-max_list} more)")
                     else:
                         print("No JSON files found in searched directories")
-                except Exception as e:
+                except (subprocess.SubprocessError, OSError) as e:
                     print(f"⚠️  Error searching for JSON files ({type(e).__name__}): {e}")
 
                 print("\n🔧 SOLUTION: Run link verification first:")
@@ -156,7 +161,8 @@ class ComfyUIModelDownloader:
                 if not valid_links:
                     print("⚠️  Warning: No valid links found in verification file!")
                     print("🔍 DEBUG: Verification file contents:")
-                    print(json.dumps(data, indent=2)[:500] + "..." if len(json.dumps(data, indent=2)) > 500 else json.dumps(data, indent=2))
+                    pretty = json.dumps(data, indent=2)
+                    print(pretty[:500] + "..." if len(pretty) > 500 else pretty)
 
                 return valid_links
 
@@ -166,7 +172,7 @@ class ComfyUIModelDownloader:
             print(f"   rm {self.verification_file}")
             print("   python3 scripts/verify_links.py")
             sys.exit(1)
-        except Exception as e:
+        except (OSError, IOError) as e:
             print(f"❌ Error loading verification file ({type(e).__name__}): {e}")
             sys.exit(1)
 
@@ -210,7 +216,10 @@ class ComfyUIModelDownloader:
                     response.raise_for_status()
 
                     # Retrieve file size for progress output
-                    total_size = int(response.headers.get('content-length', 0))
+                    try:
+                        total_size = int(response.headers.get('content-length', 0))
+                    except (TypeError, ValueError):
+                        total_size = 0
 
                     with open(target_path, 'wb') as f:
                         downloaded = 0

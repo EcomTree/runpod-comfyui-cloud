@@ -23,7 +23,7 @@ RUN apt-get update && apt-get upgrade -y && \
 RUN pip uninstall -y torch torchvision torchaudio xformers && \
     pip install --no-cache-dir torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128 && \
     pip install --no-cache-dir ninja flash-attn --no-build-isolation && \
-    pip install --no-cache-dir tensorrt nvidia-tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
+    pip install --no-cache-dir tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
 
 # Workspace einrichten
 WORKDIR /workspace
@@ -375,12 +375,16 @@ else
 fi
 
 # Start Jupyter Lab in the background (port 8888) without token auth
-echo "📊 Starting Jupyter Lab on port 8888..."
-cd /workspace
-nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
-    --NotebookApp.token='' --NotebookApp.password='' \
-    --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
-echo "✅ Jupyter Lab started in background (no auth required)"
+if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
+  echo "📊 Starting Jupyter Lab on port 8888..."
+  cd /workspace
+  nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
+      --NotebookApp.token='' --NotebookApp.password='' \
+      --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
+  echo "✅ Jupyter Lab started in background (no auth required)"
+else
+  echo "ℹ️  Jupyter disabled (set JUPYTER_ENABLE=true to start)"
+fi
 
 # Optimize H200 environment variables
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:1024,expandable_segments:True

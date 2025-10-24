@@ -94,9 +94,14 @@ fi
 DOCKER_RUN_CMD+=("$IMAGE_NAME")
 
 echo "🐳 Running: docker run ${DOCKER_RUN_CMD[*]}"
-# Run docker and capture output and exit code separately
-CONTAINER_ID=$(docker run "${DOCKER_RUN_CMD[@]}")
-DOCKER_EXIT=$?
+CIDFILE="$(mktemp)"
+if docker run --cidfile "$CIDFILE" "${DOCKER_RUN_CMD[@]}"; then
+    CONTAINER_ID="$(cat "$CIDFILE")"
+    DOCKER_EXIT=0
+else
+    DOCKER_EXIT=$?
+fi
+rm -f "$CIDFILE"
 
 if [ $DOCKER_EXIT -ne 0 ]; then
     echo "❌ Failed to start container (exit code: $DOCKER_EXIT)"
@@ -215,14 +220,14 @@ echo ""
 echo "🔌 Testing ComfyUI API endpoint..."
 # Use a temporary file to store curl output inside the container for more reliable exit code capture
 TMP_CURL_OUT="/tmp/comfyui_api_test_$$.out"
-docker exec "$CONTAINER_NAME" sh -c "curl -s -f http://localhost:8188/queue > $TMP_CURL_OUT" 2>/dev/null
-CURL_EXIT_CODE=$?
+docker exec "$CONTAINER_NAME" sh -c "curl -s -f http://localhost:8188/queue > '$TMP_CURL_OUT' ; echo \$? > '${TMP_CURL_OUT}.rc'" >/dev/null 2>&1
+DOCKER_EXEC_RC=$?
 COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" cat "$TMP_CURL_OUT" 2>/dev/null)
-# Clean up temporary file
-docker exec "$CONTAINER_NAME" rm -f "$TMP_CURL_OUT" 2>/dev/null
+CURL_EXIT_CODE=$(docker exec "$CONTAINER_NAME" cat "${TMP_CURL_OUT}.rc" 2>/dev/null || echo 127)
+docker exec "$CONTAINER_NAME" rm -f "$TMP_CURL_OUT" "${TMP_CURL_OUT}.rc" >/dev/null 2>&1
 
-# Check if docker exec itself failed (exit codes >= 127 typically indicate exec failure)
-if [ "$CURL_EXIT_CODE" -ge 127 ]; then
+# Check if docker exec itself failed
+if [ "$DOCKER_EXEC_RC" -ne 0 ]; then
     echo "❌ Docker exec command failed (exit code: $CURL_EXIT_CODE)"
     echo "🔍 Container may not be running or reachable"
     docker ps -a --filter "name=$CONTAINER_NAME" --format "table {{.Names}}\t{{.Status}}\t{{.State}}"
