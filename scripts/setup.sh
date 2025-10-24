@@ -14,7 +14,6 @@ set -euo pipefail
 # Script configuration
 SCRIPT_VERSION="2.0"
 PROJECT_NAME="runpod-comfyui-cloud"
-REPO_URL="https://github.com/EcomTree/runpod-comfyui-cloud.git"
 COMFYUI_REPO="https://github.com/comfyanonymous/ComfyUI.git"
 COMFYUI_MANAGER_REPO="https://github.com/ltdrdata/ComfyUI-Manager.git"
 
@@ -32,6 +31,7 @@ get_script_dir() {
 SCRIPT_DIR="$(get_script_dir)"
 
 # Try to source common helpers
+# shellcheck source=/dev/null
 COMMON_HELPERS="$SCRIPT_DIR/common-codex.sh"
 
 if [ -f "$COMMON_HELPERS" ]; then
@@ -47,6 +47,7 @@ else
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "$HELPER_URL" -o "$COMMON_HELPERS"
         echo "✅ Helper script downloaded successfully"
+        # shellcheck source=/dev/null
         source "$COMMON_HELPERS"
     else
         echo "❌ curl not found - cannot download helper script"
@@ -78,25 +79,25 @@ main() {
     fi
     
     # Setup workspace
-    setup_workspace
+    setup_workspace || { log_error "Workspace setup failed"; exit 1; }
     
     # Install system dependencies
-    install_system_dependencies
+    install_system_dependencies || log_warning "Some system dependencies failed to install"
     
     # Setup ComfyUI
-    setup_comfyui
+    setup_comfyui || { log_error "ComfyUI setup failed"; exit 1; }
     
     # Setup Python environment
-    setup_python_environment
+    setup_python_environment || { log_error "Python environment setup failed"; exit 1; }
     
     # Download models (if enabled)
-    download_models
+    download_models || log_warning "Model download encountered issues"
     
     # Setup services
-    setup_services
+    setup_services || log_warning "Service setup encountered issues"
     
     # Validate setup
-    validate_setup
+    validate_setup || log_warning "Validation encountered issues"
     
     # Show summary
     show_summary
@@ -284,19 +285,19 @@ setup_services() {
     log_info "Setting up services..."
     
     # Create startup script for ComfyUI
-    cat > "$WORKSPACE_DIR/start_comfyui.sh" << 'EOF'
+    cat > "$WORKSPACE_DIR/start_comfyui.sh" <<EOF
 #!/bin/bash
-cd /workspace/ComfyUI
-python3 main.py --listen 0.0.0.0 --port ${COMFYUI_PORT:-8188} > /workspace/logs/comfyui.log 2>&1
+cd "$WORKSPACE_DIR/ComfyUI"
+python3 main.py --listen 0.0.0.0 --port \${COMFYUI_PORT:-8188} > "$WORKSPACE_DIR/logs/comfyui.log" 2>&1
 EOF
     chmod +x "$WORKSPACE_DIR/start_comfyui.sh"
     
     # Create startup script for Jupyter
-    cat > "$WORKSPACE_DIR/start_jupyter.sh" << 'EOF'
+    cat > "$WORKSPACE_DIR/start_jupyter.sh" <<EOF
 #!/bin/bash
-jupyter lab --ip=0.0.0.0 --port=${JUPYTER_PORT:-8888} --no-browser --allow-root \
-    --NotebookApp.token='' --NotebookApp.password='' \
-    --notebook-dir=/workspace > /workspace/logs/jupyter.log 2>&1
+jupyter lab --ip=0.0.0.0 --port=\${JUPYTER_PORT:-8888} --no-browser --allow-root \\
+    --NotebookApp.token='' --NotebookApp.password='' \\
+    --notebook-dir="$WORKSPACE_DIR" > "$WORKSPACE_DIR/logs/jupyter.log" 2>&1
 EOF
     chmod +x "$WORKSPACE_DIR/start_jupyter.sh"
     

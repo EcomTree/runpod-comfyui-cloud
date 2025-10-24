@@ -153,7 +153,9 @@ ensure_system_packages() {
 
     for pkg in "${missing[@]}"; do
         if command_exists "$pkg"; then
-            log_success "$pkg installed"
+            log_success "$pkg installed (command available)"
+        elif dpkg -s "$pkg" >/dev/null 2>&1; then
+            log_success "$pkg installed (package present)"
         else
             log_warning "$pkg installation failed"
         fi

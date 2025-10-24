@@ -68,7 +68,7 @@ curl http://localhost:8888/
 find /workspace/ComfyUI/models -name "*.safetensors" | wc -l
 
 # View logs
-tail -f /workspace/comfyui.log
+tail -f /workspace/logs/comfyui.log
 ```
 
 ---
@@ -92,7 +92,7 @@ tail -f /workspace/comfyui.log
 
 ## 📁 Directory Structure
 
-```
+```text
 /workspace/
 ├── ComfyUI/                    # Main ComfyUI installation
 │   ├── models/                 # AI models
@@ -140,7 +140,7 @@ python3 /workspace/scripts/download_models.py
 ### ComfyUI not starting?
 ```bash
 # Check logs
-tail -50 /workspace/comfyui.log
+tail -50 /workspace/logs/comfyui.log
 
 # Restart ComfyUI
 pkill -f "python.*main.py"
@@ -150,7 +150,7 @@ cd /workspace/ComfyUI && python3 main.py --listen 0.0.0.0 --port 8188
 ### Models not downloading?
 ```bash
 # Check download log
-tail -50 /workspace/model_download.log
+tail -50 /workspace/logs/model_download.log
 
 # Manually download models
 cd /workspace
@@ -206,8 +206,8 @@ pip install -r requirements.txt
 
 ## 📚 Resources
 
-- **ComfyUI Docs:** https://github.com/comfyanonymous/ComfyUI
-- **ComfyUI Manager:** https://github.com/ltdrdata/ComfyUI-Manager
+- **ComfyUI Docs:** [https://github.com/comfyanonymous/ComfyUI](https://github.com/comfyanonymous/ComfyUI)
+- **ComfyUI Manager:** [https://github.com/ltdrdata/ComfyUI-Manager](https://github.com/ltdrdata/ComfyUI-Manager)
 - **Model Library:** See `comfyui_models_complete_library.md`
 - **GPU Compatibility:** See `docs/gpu-compatibility.md`
 - **Troubleshooting:** See `docs/troubleshooting.md`
@@ -217,9 +217,9 @@ pip install -r requirements.txt
 ## 🆘 Support
 
 For issues or questions:
-- Check logs: `/workspace/*.log`
-- GitHub Issues: https://github.com/EcomTree/runpod-comfyui-cloud/issues
-- RunPod Docs: https://docs.runpod.io/
+- Check logs: `/workspace/logs/*.log`
+- GitHub Issues: [https://github.com/EcomTree/runpod-comfyui-cloud/issues](https://github.com/EcomTree/runpod-comfyui-cloud/issues)
+- RunPod Docs: [https://docs.runpod.io/](https://docs.runpod.io/)
 
 ---
 
