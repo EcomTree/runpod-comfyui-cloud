@@ -295,17 +295,21 @@ except Exception as e:
                             return 1
                         else
                             log_success "CUDA version detected: $cuda_ver"
-                            # Parse major.minor version for comparison
-                            local major minor
-                            major=$(echo "$cuda_ver" | cut -d. -f1)
-                            minor=$(echo "$cuda_ver" | cut -d. -f2)
-                            
-                            # Check if version >= 12.8
-                            if [ "$major" -gt 12 ] || ([ "$major" -eq 12 ] && [ "$minor" -ge 8 ]); then
-                                log_success "CUDA version is compatible (>= 12.8)"
-                                return 0
+                            # Validate and parse major.minor version for comparison using regex
+                            if [[ "$cuda_ver" =~ ^([0-9]+)\.([0-9]+) ]]; then
+                                local major="${BASH_REMATCH[1]}"
+                                local minor="${BASH_REMATCH[2]}"
+                                
+                                # Check if version >= 12.8
+                                if [ "$major" -gt 12 ] || { [ "$major" -eq 12 ] && [ "$minor" -ge 8 ]; }; then
+                                    log_success "CUDA version is compatible (>= 12.8)"
+                                    return 0
+                                else
+                                    log_warning "CUDA version $cuda_ver is below recommended 12.8+"
+                                    return 0  # Don't fail, just warn
+                                fi
                             else
-                                log_warning "CUDA version $cuda_ver is below recommended 12.8+"
+                                log_warning "CUDA version format is invalid: $cuda_ver"
                                 return 0  # Don't fail, just warn
                             fi
                         fi
