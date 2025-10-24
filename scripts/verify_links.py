@@ -249,7 +249,9 @@ def main():
             print(f"   {path} - {'EXISTS' if path.exists() else 'NOT FOUND'}")
 
         print("\n🔍 DEBUG: Available files in key directories:")
-        for path in [Path('/opt/runpod'), Path('/workspace'), Path(__file__).parent.parent]:
+        # Extract unique parent directories from possible_paths
+        parent_dirs = list({p.parent.resolve() for p in possible_paths})
+        for path in parent_dirs:
             if path.exists():
                 try:
                     files = list(path.glob('*.md'))

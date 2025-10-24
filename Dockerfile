@@ -110,19 +110,14 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
         ls -lh "$LIBRARY_SOURCE"
     else
         echo "❌ Library source NOT found: $LIBRARY_SOURCE"
+        echo "❌ Cannot proceed with model downloads without library file!"
         echo "Available files in /opt/runpod/:"
         ls -la /opt/runpod/ || true
+        exit 1
     fi
 
     if [ ! -f "$LIBRARY_DEST" ]; then
         echo "📄 Copying comfyui_models_complete_library.md into /workspace"
-        if [ ! -f "$LIBRARY_SOURCE" ]; then
-            echo "❌ Library source file not found: $LIBRARY_SOURCE"
-            echo "❌ Cannot proceed with model downloads without library file!"
-            echo "Available files in /opt/runpod/:"
-            ls -la /opt/runpod/ || true
-            exit 1
-        fi
         cp "$LIBRARY_SOURCE" "$LIBRARY_DEST" || {
             echo "❌ Failed to copy library file!"
             echo "Source: $LIBRARY_SOURCE"

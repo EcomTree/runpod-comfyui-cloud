@@ -66,8 +66,8 @@ echo ""
 echo "🔍 Checking if image exists locally..."
 if ! docker image inspect "$IMAGE_NAME" &> /dev/null; then
     echo "📥 Image not found locally. Building image..."
-    ./scripts/build.sh -t latest -n "$IMAGE_NAME" || {
-        echo "❌ Failed to build image"
+    ./scripts/build.sh -t latest -n "$IMAGE_NAME" 2>&1 || {
+        echo "❌ Failed to build image. See output above for details"
         exit 1
     }
 else
@@ -148,7 +148,8 @@ echo "📁 Model directories status:"
 MODEL_DIRS=("checkpoints" "vae" "loras" "controlnet" "upscale_models" "unet" "clip" "t5" "clip_vision")
 for dir in "${MODEL_DIRS[@]}"; do
     if docker exec "$CONTAINER_NAME" test -d "/workspace/ComfyUI/models/$dir" 2>/dev/null; then
-        COUNT=$(docker exec "$CONTAINER_NAME" find "/workspace/ComfyUI/models/$dir" \( -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth" \) 2>/dev/null | wc -l 2>/dev/null || echo "0")
+        # Count model files (suppress stderr only from find to avoid noise from permission errors)
+        COUNT=$(docker exec "$CONTAINER_NAME" find "/workspace/ComfyUI/models/$dir" \( -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth" \) 2>/dev/null | wc -l || echo "0")
         SIZE=$(docker exec "$CONTAINER_NAME" du -sh "/workspace/ComfyUI/models/$dir" 2>/dev/null | cut -f1 || echo "0")
         echo "   $dir: $COUNT models ($SIZE)"
     else
@@ -174,7 +175,13 @@ echo "🔌 Testing ComfyUI API endpoint..."
 if docker exec "$CONTAINER_NAME" curl -s -f http://localhost:8188/queue > /dev/null 2>&1; then
     echo "✅ ComfyUI API is responding"
     echo "📊 ComfyUI status:"
-    docker exec "$CONTAINER_NAME" curl -s http://localhost:8188/queue | head -5 2>/dev/null || echo "Could not get queue status"
+    COMFYUI_QUEUE_OUTPUT=$(docker exec "$CONTAINER_NAME" curl -s http://localhost:8188/queue 2>/dev/null)
+    CURL_EXIT_CODE=$?
+    if [ $CURL_EXIT_CODE -ne 0 ]; then
+        echo "Could not get queue status: curl failed (exit code $CURL_EXIT_CODE)"
+    else
+        echo "$COMFYUI_QUEUE_OUTPUT" | head -5 2>/dev/null || echo "Could not get queue status: head failed"
+    fi
 else
     echo "❌ ComfyUI API is not responding"
     echo "🔍 ComfyUI logs:"
