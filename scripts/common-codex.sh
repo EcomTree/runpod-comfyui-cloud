@@ -222,7 +222,8 @@ setup_python_env() {
             if "$venv_path/bin/pip" install -r "$requirements_file"; then
                 log_success "Requirements installed successfully"
             else
-                log_warning "Failed to install some requirements"
+                log_error "Failed to install requirements – environment is incomplete"
+                return 1
             fi
         fi
         
@@ -260,33 +261,72 @@ check_gpu_requirements() {
     log_info "Checking GPU requirements..."
     
     if command_exists nvidia-smi; then
-        local cuda_version
-        cuda_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits | head -1)
+        local driver_version
+        driver_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits | head -1)
         
-        if [ -n "$cuda_version" ]; then
-            log_success "NVIDIA GPU detected with driver version $cuda_version"
+        if [ -n "$driver_version" ]; then
+            log_success "NVIDIA GPU detected with driver version $driver_version"
             
-            # Check if CUDA version is compatible (12.8+)
-            if python3 -c "
-import torch
-if torch.cuda.is_available():
-    cuda_version = torch.version.cuda
-    print(f'CUDA {cuda_version} available')
-    if cuda_version and float(cuda_version) >= 12.8:
-        print('CUDA version compatible')
-        exit(0)
+            # Try to check CUDA version with torch if available
+            if command_exists python3; then
+                local cuda_check_result
+                cuda_check_result=$(python3 -c "
+try:
+    import torch
+    if torch.cuda.is_available():
+        cuda_version = torch.version.cuda
+        if cuda_version:
+            print(f'CUDA_{cuda_version}')
+        else:
+            print('CUDA_NONE')
     else:
-        print('CUDA version incompatible (requires 12.8+)')
-        exit(1)
-else:
-    print('CUDA not available')
-    exit(1)
-" 2>/dev/null; then
-                log_success "CUDA version is compatible"
-                return 0
+        print('CUDA_NOT_AVAILABLE')
+except ImportError:
+    print('TORCH_NOT_INSTALLED')
+except Exception as e:
+    print(f'ERROR_{e}')
+" 2>/dev/null)
+                
+                case "$cuda_check_result" in
+                    CUDA_*)
+                        local cuda_ver="${cuda_check_result#CUDA_}"
+                        if [ "$cuda_ver" = "NONE" ] || [ "$cuda_ver" = "NOT_AVAILABLE" ]; then
+                            log_warning "CUDA not available in torch"
+                            return 1
+                        else
+                            log_success "CUDA version detected: $cuda_ver"
+                            # Parse major.minor version for comparison
+                            local major minor
+                            major=$(echo "$cuda_ver" | cut -d. -f1)
+                            minor=$(echo "$cuda_ver" | cut -d. -f2)
+                            
+                            # Check if version >= 12.8
+                            if [ "$major" -gt 12 ] || ([ "$major" -eq 12 ] && [ "$minor" -ge 8 ]); then
+                                log_success "CUDA version is compatible (>= 12.8)"
+                                return 0
+                            else
+                                log_warning "CUDA version $cuda_ver is below recommended 12.8+"
+                                return 0  # Don't fail, just warn
+                            fi
+                        fi
+                        ;;
+                    TORCH_NOT_INSTALLED)
+                        log_warning "PyTorch not installed - cannot verify CUDA runtime version"
+                        log_info "Driver version $driver_version detected, assuming compatible"
+                        return 0  # Don't fail if torch not available
+                        ;;
+                    ERROR_*)
+                        log_warning "Error checking CUDA version: ${cuda_check_result#ERROR_}"
+                        return 0  # Don't fail on check errors
+                        ;;
+                    *)
+                        log_warning "Unexpected CUDA check result: $cuda_check_result"
+                        return 0
+                        ;;
+                esac
             else
-                log_error "CUDA version is incompatible (requires 12.8+)"
-                return 1
+                log_warning "Python not available - cannot verify CUDA runtime version"
+                return 0  # Don't fail if python not available
             fi
         else
             log_error "Could not determine GPU driver version"

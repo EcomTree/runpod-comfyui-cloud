@@ -117,16 +117,21 @@ class ComfyUIModelDownloader:
                     break
             else:
                 print("❌ No verification file found in any location!")
-                print("🔍 Available JSON files in /workspace:")
+                print("🔍 Searching for JSON files in /workspace (this may take a moment)...")
                 try:
-                    result = subprocess.run(['find', '/workspace', '-name', '*.json', '-type', 'f'],
-                                          capture_output=True, text=True, timeout=10)
+                    # Increase timeout and limit search depth to avoid issues in large filesystems
+                    result = subprocess.run(['find', '/workspace', '-maxdepth', '3', '-name', '*.json', '-type', 'f'],
+                                          capture_output=True, text=True, timeout=30)
                     if result.stdout:
                         print(result.stdout)
-                    if result.stderr:
-                        print(f"Error: {result.stderr}")
+                    elif result.returncode != 0 and result.stderr:
+                        print(f"Search warning: {result.stderr}")
+                    else:
+                        print("No JSON files found in /workspace")
+                except subprocess.TimeoutExpired:
+                    print("⚠️  Search timed out (filesystem too large) - skipping file listing")
                 except Exception as e:
-                    print(f"Error searching for JSON files: {e}")
+                    print(f"⚠️  Error searching for JSON files: {e}")
 
                 print("\n🔧 SOLUTION: Run link verification first:")
                 print("   python3 scripts/verify_links.py")
