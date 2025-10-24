@@ -26,6 +26,11 @@ HF_TOKEN=hf_xxx
 
 > `HF_TOKEN` ist optional – ohne Token schlagen private/commercial Links (z. B. FLUX.1 Dev) mit **401 Unauthorized** fehl.
 
+**HF_TOKEN Format**:
+- Muss mit `hf_` beginnen und mindestens 10 Zeichen lang sein
+- Token ohne `hf_` Präfix oder leere Tokens werden ignoriert
+- Token bekommst du unter: https://huggingface.co/settings/tokens
+
 ### Manuelle Ausführung
 
 Falls du den Download später starten möchtest:
@@ -75,6 +80,42 @@ Das System sortiert Modelle automatisch in die richtigen Verzeichnisse:
 - `ipadapter/` - IP-Adapter Modelle
 
 ## Troubleshooting
+
+### Model-Download startet nicht
+
+**Symptom**: Ordner in `/workspace/ComfyUI/models/` bleiben leer, keine Download-Aktivität
+
+**Ursache**: Die `comfyui_models_complete_library.md` fehlt im Container
+
+**Lösung**: Image neu bauen nach dem neuesten Commit:
+
+```bash
+# Lokaler Build
+./scripts/build.sh
+
+# Oder via RunPod: Neues Image aus Registry pullen
+```
+
+**Verifikation**: Im laufenden Container prüfen:
+
+```bash
+# Checken ob die Datei existiert
+ls -lh /opt/runpod/comfyui_models_complete_library.md
+ls -lh /workspace/comfyui_models_complete_library.md
+
+# Download-Log prüfen
+tail -f /workspace/model_download.log
+```
+
+### Jupyter "File Load Error" beim Öffnen von Model-Ordnern
+
+**Symptom**: Jupyter zeigt "File Load Error for 'put_vae_here'" oder ähnliche Fehler
+
+**Ursache**: Die Model-Ordner enthalten nur `.placeholder` Dateien (z.B. `put_vae_here`) - diese sind Dummy-Dateien die Jupyter nicht öffnen kann
+
+**Lösung**: Das ist kein Fehler! Die Placeholder-Dateien sind nur da um die Git-Ordnerstruktur zu erhalten. Sobald der Model-Download läuft, werden echte Model-Dateien hinzugefügt.
+
+**Workaround**: Einfach ignorieren oder nur echte Model-Dateien (`.safetensors`, `.ckpt`) öffnen.
 
 ### Downloads schlagen fehl
 

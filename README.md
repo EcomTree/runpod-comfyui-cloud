@@ -66,27 +66,40 @@ Once deployed:
 
 ```
 runpod-comfyui-cloud/
-├── Dockerfile                  # Main pod image
-├── setup-codex.sh             # Codex environment setup
+├── Dockerfile                        # Main Docker image definition
+├── comfyui_models_complete_library.md # Complete model library (200+ models)
+├── README.md                         # This file
+├── README_MODELS.md                  # Model download documentation
+├── LICENSE                           # MIT License
+├── requirements.txt                  # Development dependencies
+├── runpod-template-example.json      # RunPod template configuration
 ├── docs/
-│   ├── deployment-guide.md
-│   ├── troubleshooting.md
-│   └── gpu-compatibility.md
-├── scripts/
-│   ├── build.sh               # Local build helper
-│   ├── deploy.sh              # RunPod deployment
-│   ├── download_models.py     # Model download script
-│   ├── verify_links.py        # Link validation
-│   └── test.sh                # Image testing
-├── .github/
-│   └── workflows/
-│       └── docker-build.yml    # CI/CD pipeline
-├── .dockerignore
-├── .gitignore
-└── README.md
+│   ├── deployment-guide.md          # Deployment instructions
+│   ├── troubleshooting.md           # Common issues & solutions
+│   └── gpu-compatibility.md         # GPU compatibility matrix
+└── scripts/
+    ├── build.sh                     # Docker build script
+    ├── deploy.sh                    # RunPod deployment script
+    ├── test.sh                      # Local testing script
+    ├── download_models.py           # Automatic model downloader
+    └── verify_links.py              # Link verification tool
 ```
 
 ## 🛠️ Development
+
+### Local Setup
+
+**1. Install development dependencies:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**2. Verify model links:**
+```bash
+python3 scripts/verify_links.py
+```
 
 ### Building Images
 

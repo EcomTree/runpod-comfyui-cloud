@@ -1,4 +1,4 @@
-# RunPod ComfyUI H200 - Git Ignore
+# RunPod ComfyUI Cloud - Git Ignore
 
 # Build artifacts
 *.log
@@ -88,3 +88,8 @@ pod-logs/
 # Docker build cache
 .buildx-cache/
 docker-build.log
+
+# Model download results (generated at runtime)
+link_verification_results.json
+downloaded_models_summary.json
+model_download.log
