@@ -275,7 +275,7 @@ def main():
         lines = content.split('\n')[:10]
         print("🔍 DEBUG: First 10 lines of markdown file:")
         for i, line in enumerate(lines, 1):
-            print(f"   {i"2d"}: {line}")
+            print(f"   {i:2d}: {line}")
 
     except Exception as e:
         print(f"❌ Error reading markdown file: {e}")
@@ -304,6 +304,7 @@ def main():
 
     # Save detailed results
     # Try to save to script directory first, fallback to /workspace if not writable
+    script_dir = Path(__file__).parent
     output_file = script_dir.parent / 'link_verification_results.json'
     
     # Check if directory exists and is writable with improved error handling

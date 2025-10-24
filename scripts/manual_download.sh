@@ -199,7 +199,7 @@ echo "📁 Model directories:"
 MODEL_DIRS=("checkpoints" "vae" "loras" "controlnet" "upscale_models" "unet" "clip" "t5" "clip_vision" "animatediff_models" "ipadapter")
 for dir in "${MODEL_DIRS[@]}"; do
     if [ -d "ComfyUI/models/$dir" ]; then
-        COUNT=$(find "ComfyUI/models/$dir" -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth" | wc -l 2>/dev/null || echo "0")
+        COUNT=$(find "ComfyUI/models/$dir" \( -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth" \) | wc -l 2>/dev/null || echo "0")
         if [ "$COUNT" -gt 0 ]; then
             echo "   $dir: $COUNT models"
         fi

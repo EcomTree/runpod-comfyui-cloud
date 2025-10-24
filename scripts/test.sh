@@ -79,7 +79,6 @@ echo "🚀 Starting test container with enhanced debugging..."
 
 # Build docker run command
 DOCKER_RUN_CMD=(
-    docker run
     -d
     --name "$CONTAINER_NAME"
     --platform linux/amd64
@@ -94,7 +93,7 @@ fi
 
 DOCKER_RUN_CMD+=("$IMAGE_NAME")
 
-echo "🐳 Running: ${DOCKER_RUN_CMD[*]}"
+echo "🐳 Running: docker run ${DOCKER_RUN_CMD[*]}"
 CONTAINER_ID=$(docker run "${DOCKER_RUN_CMD[@]}")
 
 if [ $? -ne 0 ]; then
@@ -149,7 +148,7 @@ echo "📁 Model directories status:"
 MODEL_DIRS=("checkpoints" "vae" "loras" "controlnet" "upscale_models" "unet" "clip" "t5" "clip_vision")
 for dir in "${MODEL_DIRS[@]}"; do
     if docker exec "$CONTAINER_NAME" test -d "/workspace/ComfyUI/models/$dir" 2>/dev/null; then
-        COUNT=$(docker exec "$CONTAINER_NAME" find "/workspace/ComfyUI/models/$dir" -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth" 2>/dev/null | wc -l 2>/dev/null || echo "0")
+        COUNT=$(docker exec "$CONTAINER_NAME" find "/workspace/ComfyUI/models/$dir" \( -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth" \) 2>/dev/null | wc -l 2>/dev/null || echo "0")
         SIZE=$(docker exec "$CONTAINER_NAME" du -sh "/workspace/ComfyUI/models/$dir" 2>/dev/null | cut -f1 || echo "0")
         echo "   $dir: $COUNT models ($SIZE)"
     else
