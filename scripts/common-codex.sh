@@ -37,6 +37,23 @@ log_error() {
     echo -e "${RED}❌ $1${NC}"
 }
 
+# Alias functions for compatibility with echo_* naming convention
+echo_info() {
+    log_info "$@"
+}
+
+echo_success() {
+    log_success "$@"
+}
+
+echo_warning() {
+    log_warning "$@"
+}
+
+echo_error() {
+    log_error "$@"
+}
+
 # Check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -448,6 +465,7 @@ init_codex_environment() {
 
 # Export functions for use in other scripts
 export -f log_info log_success log_warning log_error
+export -f echo_info echo_success echo_warning echo_error
 export -f command_exists file_exists dir_exists
 export -f retry is_codex_environment resolve_path
 export -f download_file install_system_packages check_system_requirements setup_python_env
