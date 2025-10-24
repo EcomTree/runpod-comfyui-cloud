@@ -20,10 +20,13 @@ RUN apt-get update && apt-get upgrade -y && \
 
 # Install Python dependencies in a single layer (optimized for Docker caching)
 # Removes existing packages first and installs the H200-optimized stack.
+# NOTE: The 'nvidia-tensorrt' package has been removed from the pip install command.
+# Reason: Migrated to upstream 'tensorrt' package for compatibility with H200 hardware and CUDA 12.8.
+# If you require 'nvidia-tensorrt', please update your workflow or install it manually.
 RUN pip uninstall -y torch torchvision torchaudio xformers && \
     pip install --no-cache-dir torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128 && \
     pip install --no-cache-dir ninja flash-attn --no-build-isolation && \
-    pip install --no-cache-dir tensorrt nvidia-tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
+    pip install --no-cache-dir tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
 
 # Workspace einrichten
 WORKDIR /workspace
@@ -85,6 +88,14 @@ RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
 DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-false}
 HF_TOKEN=${HF_TOKEN:-}
 
+echo "🔍 DEBUG: Environment variables:"
+echo "   DOWNLOAD_MODELS='$DOWNLOAD_MODELS'"
+if [ -n "$HF_TOKEN" ]; then
+    echo "   HF_TOKEN='YES'"
+else
+    echo "   HF_TOKEN='NO'"
+fi
+
 if [ "$DOWNLOAD_MODELS" = "true" ]; then
     echo "🚀 Starting automatic download of ComfyUI models in background..."
     echo "📁 This may take a long time and require significant storage!"
@@ -95,9 +106,62 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
     LIBRARY_SOURCE="/opt/runpod/comfyui_models_complete_library.md"
     LIBRARY_DEST="/workspace/comfyui_models_complete_library.md"
-    if [ -f "$LIBRARY_SOURCE" ] && [ ! -f "$LIBRARY_DEST" ]; then
-        echo "📄 Syncing comfyui_models_complete_library.md into /workspace"
-        cp "$LIBRARY_SOURCE" "$LIBRARY_DEST"
+
+    echo "🔍 DEBUG: Checking library file..."
+    if [ -f "$LIBRARY_SOURCE" ]; then
+        echo "✅ Library source found: $LIBRARY_SOURCE"
+        ls -lh "$LIBRARY_SOURCE"
+    else
+        echo "❌ Library source NOT found: $LIBRARY_SOURCE"
+        echo "❌ Cannot proceed with model downloads without library file!"
+        echo "Available files in /opt/runpod/:"
+        ls -la /opt/runpod/ || true
+        exit 1
+    fi
+
+    if [ ! -f "$LIBRARY_DEST" ]; then
+        echo "📄 Copying comfyui_models_complete_library.md into /workspace"
+        cp "$LIBRARY_SOURCE" "$LIBRARY_DEST" || {
+            echo "❌ Failed to copy library file!"
+            echo "Source: $LIBRARY_SOURCE"
+            echo "Destination: $LIBRARY_DEST"
+            exit 1
+        }
+        echo "✅ Library file copied successfully"
+    else
+        echo "✅ Library destination already exists: $LIBRARY_DEST"
+    fi
+
+    # Check if virtual environment exists
+    echo "🔍 DEBUG: Checking virtual environment..."
+    if [ -d "model_dl_venv" ]; then
+        echo "✅ Virtual environment found"
+        echo "🔍 DEBUG: Checking activation script..."
+        if [ -f "model_dl_venv/bin/activate" ]; then
+            echo "✅ Activation script found"
+        else
+            echo "❌ Activation script missing!"
+        fi
+    else
+        echo "❌ Virtual environment not found!"
+        echo "Available directories in /workspace:"
+        ls -la /workspace/ | grep -E "^d" || true
+    fi
+
+    # Check if scripts exist
+    echo "🔍 DEBUG: Checking download scripts..."
+    if [ -f "/workspace/scripts/verify_links.py" ]; then
+        echo "✅ verify_links.py found"
+    else
+        echo "❌ verify_links.py NOT found"
+        echo "Available files in /workspace/scripts/:"
+        ls -la /workspace/scripts/ || true
+    fi
+
+    if [ -f "/workspace/scripts/download_models.py" ]; then
+        echo "✅ download_models.py found"
+    else
+        echo "❌ download_models.py NOT found"
     fi
 
     # Run model download in background with logging
@@ -105,26 +169,65 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     # Using 'env' ensures the variable is properly propagated to all child processes
     env HF_TOKEN="${HF_TOKEN}" nohup bash -c "
         set -e
-        
+
+        echo \"🔍 DEBUG: Inside background process\"
+        echo \"   Working directory: \$(pwd)\"
+        echo \"   HF_TOKEN set: \$(if [ -n \"\$HF_TOKEN\" ]; then echo 'YES'; else echo 'NO'; fi)\"
+
         # Activate virtual environment
-        source model_dl_venv/bin/activate
+        echo \"🔍 DEBUG: Activating virtual environment...\"
+        source model_dl_venv/bin/activate || {
+            echo \"❌ Failed to activate virtual environment!\"
+            exit 1
+        }
 
         # Verify links (if not already done)
+        echo \"🔍 DEBUG: Checking for link verification results...\"
         if [ ! -f \"link_verification_results.json\" ]; then
             echo \"🔍 Checking link accessibility...\"
-            python3 /workspace/scripts/verify_links.py
+            if ! python3 /workspace/scripts/verify_links.py; then
+                verify_exit=\$?
+                echo \"❌ Link verification failed!\"
+                echo \"   Exit code: \$verify_exit\"
+                echo \"   Check /workspace/model_download.log for details\"
+                exit \$verify_exit
+            fi
+        else
+            echo \"✅ Link verification already completed\"
+        fi
+
+        # Check if verification results exist
+        if [ -f \"link_verification_results.json\" ]; then
+            echo \"✅ Verification results found\"
+            echo \"🔍 DEBUG: Verification results preview:\"
+            head -5 link_verification_results.json || true
+        else
+            echo \"❌ No verification results found!\"
+            echo \"Available JSON files:\"
+            find . -name \"*.json\" -type f 2>/dev/null || true
         fi
 
         # Download models
         echo \"⬇️  Starting model download...\"
-        python3 /workspace/scripts/download_models.py /workspace
+        if ! python3 /workspace/scripts/download_models.py /workspace; then
+            download_exit=\$?
+            echo \"❌ Model download failed!\"
+            echo \"   Exit code: \$download_exit\"
+            echo \"   Check /workspace/model_download.log for details\"
+            exit \$download_exit
+        fi
 
         echo \"✅ Model download finished!\"
     " > /workspace/model_download.log 2>&1 &
     
-    echo "✅ Model download started in background (PID: $!)"
+    DOWNLOAD_PID=$!
+    echo "✅ Model download started in background (nohup wrapper PID: $DOWNLOAD_PID)"
+    echo "   Note: This is the PID of the wrapper process, not the actual Python script."
+    echo "   Use 'pgrep -f download_models.py' to find the actual process PID."
 else
     echo "ℹ️  Model download skipped (DOWNLOAD_MODELS != true)"
+    echo "🔍 DEBUG: DOWNLOAD_MODELS value was: '$DOWNLOAD_MODELS'"
+    echo "🔍 DEBUG: Expected value: 'true'"
 fi
 EOF
 
@@ -275,12 +378,16 @@ else
 fi
 
 # Start Jupyter Lab in the background (port 8888) without token auth
-echo "📊 Starting Jupyter Lab on port 8888..."
-cd /workspace
-nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
-    --NotebookApp.token='' --NotebookApp.password='' \
-    --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
-echo "✅ Jupyter Lab started in background (no auth required)"
+if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
+  echo "📊 Starting Jupyter Lab on port 8888..."
+  cd /workspace
+  nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
+      --NotebookApp.token='' --NotebookApp.password='' \
+      --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
+  echo "✅ Jupyter Lab started in background (no auth required)"
+else
+  echo "ℹ️  Jupyter disabled (set JUPYTER_ENABLE=true to start)"
+fi
 
 # Optimize H200 environment variables
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:1024,expandable_segments:True
@@ -288,7 +395,24 @@ export TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
 
 # Download models if requested
 echo "🔍 Checking model download status..."
+echo "🔧 Running enhanced model download script..."
 /usr/local/bin/download_comfyui_models.sh
+
+# Wait for the log file to be created by the background process
+echo "⏳ Waiting for model download log to be created..."
+WAIT_COUNT=0
+while [ ! -f "/workspace/model_download.log" ] && [ $WAIT_COUNT -lt 10 ]; do
+    sleep 1
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+done
+
+# Show the beginning of the model download log if it exists
+if [ -f "/workspace/model_download.log" ]; then
+    echo "📋 Recent model download log entries:"
+    tail -20 /workspace/model_download.log || true
+else
+    echo "⚠️  No model download log found after 10 seconds (background process may not have started yet)"
+fi
 
 cd /workspace/ComfyUI
 

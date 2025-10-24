@@ -95,13 +95,92 @@ class ComfyUIModelDownloader:
 
     def load_verified_links(self):
         """Loads the verified links from the JSON file."""
+        print(f"🔍 DEBUG: Looking for verification file: {self.verification_file}")
+
+        # Check if verification file exists
+        if not os.path.exists(self.verification_file):
+            print(f"❌ Verification file {self.verification_file} not found!")
+
+            # Try alternative locations
+            alternative_paths = [
+                "/workspace/link_verification_results.json",
+                "link_verification_results.json",
+                "./link_verification_results.json"
+            ]
+
+            print("🔍 DEBUG: Trying alternative paths...")
+            for alt_path in alternative_paths:
+                print(f"   Checking: {alt_path}")
+                if os.path.exists(alt_path):
+                    print(f"✅ Found verification file at: {alt_path}")
+                    self.verification_file = alt_path
+                    break
+            else:
+                print("❌ No verification file found in any location!")
+                print("🔍 Searching for JSON files in likely /workspace subdirectories (this may take a moment)...")
+                try:
+                    # Limit search to specific subdirectories and reduce maxdepth to avoid issues in large filesystems
+                    search_dirs = ['/workspace', '/workspace/models', '/workspace/data', '/workspace/ComfyUI']
+                    max_list = int(os.getenv("FIND_MAX_RESULTS", "100"))
+                    found_files = []
+                    
+                    # Iterate through each search directory
+                    for d in search_dirs:
+                        if not os.path.isdir(d):
+                            continue
+                        try:
+                            # Use os.walk to traverse up to depth 2
+                            for root, dirs, files in os.walk(d):
+                                # Calculate depth relative to the search directory
+                                rel_path = os.path.relpath(root, d)
+                                depth = 0 if rel_path == '.' else rel_path.count(os.sep) + 1
+                                if depth > 2:
+                                    # Prevent descending further
+                                    dirs[:] = []
+                                    continue
+                                for file in files:
+                                    if file.endswith('.json'):
+                                        found_files.append(os.path.join(root, file))
+                        except (OSError, PermissionError) as e:
+                            print(f"⚠️  Error searching in {d} ({type(e).__name__}): {e}")
+                    
+                    if found_files:
+                        for f in found_files[:max_list]:
+                            print(f"  {f}")
+                        if len(found_files) > max_list:
+                            print(f"  ... (+{len(found_files)-max_list} more)")
+                    else:
+                        print("No JSON files found in searched directories")
+                except (OSError, PermissionError) as e:
+                    print(f"⚠️  Error searching for JSON files ({type(e).__name__}): {e}")
+
+                print("\n🔧 SOLUTION: Run link verification first:")
+                print("   python3 scripts/verify_links.py")
+                sys.exit(1)
+
         try:
+            print(f"📖 Loading verification file: {self.verification_file}")
             with open(self.verification_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return data.get('valid_links', [])
-        except FileNotFoundError:
-            print(f"❌ Verification file {self.verification_file} not found!")
-            print("🔍 Run 'python3 scripts/verify_links.py' first.")
+                valid_links = data.get('valid_links', [])
+                print(f"✅ Loaded {len(valid_links)} valid links")
+
+                if not valid_links:
+                    print("⚠️  Warning: No valid links found in verification file!")
+                    print("🔍 DEBUG: Verification file contents:")
+                    pretty = json.dumps(data, indent=2)
+                    print(pretty[:500] + "..." if len(pretty) > 500 else pretty)
+
+                return valid_links
+
+        except json.JSONDecodeError as e:
+            print(f"❌ Invalid JSON in verification file: {e}")
+            print("🔧 SOLUTION: Delete the corrupted file and run verification again:")
+            print(f"   rm {self.verification_file}")
+            print("   python3 scripts/verify_links.py")
+            sys.exit(1)
+        except (OSError, IOError) as e:
+            print(f"❌ Error loading verification file ({type(e).__name__}): {e}")
             sys.exit(1)
 
     def determine_target_directory(self, url):
@@ -144,7 +223,10 @@ class ComfyUIModelDownloader:
                     response.raise_for_status()
 
                     # Retrieve file size for progress output
-                    total_size = int(response.headers.get('content-length', 0))
+                    try:
+                        total_size = int(response.headers.get('content-length', 0))
+                    except (TypeError, ValueError):
+                        total_size = 0
 
                     with open(target_path, 'wb') as f:
                         downloaded = 0

@@ -87,12 +87,12 @@ Das System sortiert Modelle automatisch in die richtigen Verzeichnisse:
 
 **Symptom**: Ordner in `/workspace/ComfyUI/models/` bleiben leer, keine Download-Aktivität
 
-**Ursache**: Die `comfyui_models_complete_library.md` fehlt im Container
+**Ursache**: Die `comfyui_models_complete_library.md` fehlt im Container oder Environment-Variablen sind nicht korrekt gesetzt
 
 **Lösung**: Image neu bauen nach dem neuesten Commit:
 
 ```bash
-# Lokaler Build
+# Lokaler Build mit erweiterten Debug-Ausgaben
 ./scripts/build.sh
 
 # Oder via RunPod: Neues Image aus Registry pullen
@@ -105,9 +105,65 @@ Das System sortiert Modelle automatisch in die richtigen Verzeichnisse:
 ls -lh /opt/runpod/comfyui_models_complete_library.md
 ls -lh /workspace/comfyui_models_complete_library.md
 
-# Download-Log prüfen
+# Download-Log prüfen (mit erweiterten Debug-Informationen)
 tail -f /workspace/model_download.log
+
+# Verifikations-Ergebnisse prüfen
+cat /workspace/link_verification_results.json | head -20
+
+# Debug-Informationen aus Container-Logs
+docker logs <container_name> | grep -E "(DEBUG|Model|Download)" | tail -20
 ```
+
+### Enhanced Debugging
+
+Das neue System bietet erweiterte Debug-Funktionen:
+
+1. **Environment Variable Validation**: Das System prüft jetzt `DOWNLOAD_MODELS` und `HF_TOKEN` beim Start
+2. **File Existence Checks**: Automatische Überprüfung aller erforderlichen Dateien
+3. **Background Process Monitoring**: Detaillierte Logs über den Download-Fortschritt
+4. **Alternative Path Detection**: Automatische Suche nach Dateien in verschiedenen Verzeichnissen
+
+### Manuelle Fehlersuche
+
+Falls der automatische Download nicht funktioniert:
+
+#### Option 1: Erweitertes Debugging
+
+```bash
+# Container mit erweitertem Debugging starten
+docker run -e DOWNLOAD_MODELS=true -e HF_TOKEN=hf_xxx ecomtree/comfyui-cloud:latest
+
+# Nach 30 Sekunden Debug-Logs prüfen
+docker logs <container_name> | tail -50
+
+# Model-Download manuell triggern
+docker exec <container_name> bash -c "
+    cd /workspace
+    source model_dl_venv/bin/activate
+    python3 scripts/verify_links.py
+    python3 scripts/download_models.py /workspace
+"
+```
+
+#### Option 2: Verwenden des Manual-Download-Script
+
+Für eine interaktivere Erfahrung gibt es ein spezielles Manual-Download-Script:
+
+```bash
+# Im Container ausführen
+docker exec -it <container_name> /workspace/scripts/manual_download.sh
+
+# Oder direkt aus dem Host
+docker exec <container_name> bash /workspace/scripts/manual_download.sh
+```
+
+Das Manual-Download-Script bietet:
+- ✅ **Interaktive Überprüfung** aller Voraussetzungen
+- ✅ **Schritt-für-Schritt** Anleitung durch den Download-Prozess
+- ✅ **Automatische** Link-Verifikation
+- ✅ **Detaillierte** Fortschrittsanzeigen
+- ✅ **Zusammenfassung** der heruntergeladenen Modelle
 
 ### Jupyter "File Load Error" beim Öffnen von Model-Ordnern
 
