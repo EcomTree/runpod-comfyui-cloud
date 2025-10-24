@@ -9,6 +9,10 @@ README.md
 docs/
 *.md
 
+# Exception: Include model documentation needed by container
+!comfyui_models_complete_library.md
+!README_MODELS.md
+
 # Build artifacts
 build/
 dist/
