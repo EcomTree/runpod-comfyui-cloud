@@ -10,7 +10,7 @@ Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPU
 
 - **🎨 ComfyUI v0.3.57** with latest performance optimizations
 - **🤖 Automatic model download** - 200+ validated models on demand
-- **📊 Jupyter Lab** integrated development environment  
+- **📊 Jupyter Lab** integrated development environment
 - **🔥 H200 GPU optimizations** for maximum performance
 - **🛡️ Crash-loop protection** with fallback mechanisms
 - **⚡ Fast startup** under 3 minutes
@@ -19,23 +19,25 @@ Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPU
 
 ## 🎯 Supported Hardware
 
-| GPU | VRAM | Cost/Hr | Status | Use Case |
-|-----|------|---------|--------|----------|
-| **RTX 5090** | 24GB | **$0.69** | ✅ **Optimal** | **Development & Production** |
-| **H200** | 80GB HBM3 | $3.59 | ✅ Premium | Heavy workloads |
-| **H100 80GB** | 80GB | ~$2.50 | ✅ Available | Enterprise |
-| RTX 4090 | 24GB | $0.34 | ❌ Incompatible | CUDA < 12.8 |
+| GPU           | VRAM      | Cost/Hr   | Status          | Use Case                     |
+| ------------- | --------- | --------- | --------------- | ---------------------------- |
+| **RTX 5090**  | 24GB      | **$0.69** | ✅ **Optimal**  | **Development & Production** |
+| **H200**      | 80GB HBM3 | $3.59     | ✅ Premium      | Heavy workloads              |
+| **H100 80GB** | 80GB      | ~$2.50    | ✅ Available    | Enterprise                   |
+| RTX 4090      | 24GB      | $0.34     | ❌ Incompatible | CUDA < 12.8                  |
 
 ## 🚀 Quick Start
 
 ### 1. Deploy on RunPod
 
 **Option A: Use Pre-built Image**
+
 ```bash
 docker pull ecomtree/comfyui-cloud:latest
 ```
 
 **Option B: Build Locally**
+
 ```bash
 # Build for RunPod (x86_64 architecture required)
 docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-cloud .
@@ -46,7 +48,7 @@ docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-clo
 1. Go to [RunPod Pods](https://console.runpod.io/pods)
 2. Click **Deploy** → Select **ecomtree-comfyui-cloud** template
 3. **Important:** Choose RTX 5090 or H200 GPU (CUDA 12.8+ required)
-4. *Optional:* Set Environment Variables:
+4. _Optional:_ Set Environment Variables:
    - `DOWNLOAD_MODELS=true` - for automatic model download
    - `HF_TOKEN=hf_xxx` - for protected Hugging Face models
 5. Click **Deploy On-Demand**
@@ -54,11 +56,13 @@ docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-clo
 ### 3. Access Services
 
 Once deployed:
+
 - **Without Volume:** Ready in ~2-3 minutes
 - **With Volume (first start):** ~5-10 minutes (one-time ComfyUI installation to volume)
 - **With Volume (subsequent starts):** ~30 seconds (ComfyUI already on volume)
 
 **Access:**
+
 - **ComfyUI:** `http://<pod-ip>:8188`
 - **Jupyter Lab:** `http://<pod-ip>:8888` (no login required)
 
@@ -90,6 +94,7 @@ runpod-comfyui-cloud/
 ### Local Setup
 
 **1. Install development dependencies:**
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
@@ -97,6 +102,7 @@ pip install -r requirements.txt
 ```
 
 **2. Verify model links:**
+
 ```bash
 python3 scripts/verify_links.py
 ```
@@ -104,16 +110,19 @@ python3 scripts/verify_links.py
 ### Building Images
 
 **For RunPod deployment (x86_64):**
+
 ```bash
 ./scripts/build.sh
 ```
 
 **Manual build:**
+
 ```bash
 docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-cloud:latest .
 ```
 
 ### Testing Locally
+
 ```bash
 ./scripts/test.sh
 ```
@@ -125,6 +134,7 @@ docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-clo
 The image supports automatic downloading of all validated ComfyUI models at startup:
 
 **Option 1: RunPod Environment Variable**
+
 ```bash
 # In RunPod Pod Settings under "Environment Variables"
 DOWNLOAD_MODELS=true
@@ -132,11 +142,13 @@ HF_TOKEN=hf_xxxxxxxxxxxxx  # Optional: for protected Hugging Face models
 ```
 
 **Option 2: Docker Run**
+
 ```bash
 docker run -e DOWNLOAD_MODELS=true -e HF_TOKEN=hf_xxx ecomtree/comfyui-cloud:latest
 ```
 
 **Manual Download (in running container)**
+
 ```bash
 # Direct in container
 docker exec -it <container_name> /usr/local/bin/download_comfyui_models.sh
@@ -146,6 +158,7 @@ docker exec -it <container_name> python3 /workspace/scripts/download_models.py /
 ```
 
 **Notes:**
+
 - ⏱️ Download takes several hours depending on internet connection
 - 💾 Requires approximately 200+ GB free storage
 - 📋 Progress log: `/workspace/model_download.log`
@@ -184,18 +197,22 @@ python main.py \
 ### Common Issues
 
 **Container crash-loop:**
+
 - ✅ **Solution:** Use RTX 5090 or H200 (CUDA 12.8+ required)
 - ❌ **Avoid:** RTX 4090 and older GPUs
 
 **"exec format error":**
+
 - ✅ **Solution:** Build with `--platform linux/amd64`
 - ❌ **Problem:** ARM64 Mac builds won't work on RunPod
 
 **Services not accessible:**
+
 - ✅ **Check:** Wait 2-3 minutes for full startup
 - ✅ **Verify:** Pod has Port Mappings in RunPod console
 
 **Model download not working:**
+
 - ✅ **Check:** Environment variable `DOWNLOAD_MODELS=true` is set
 - ✅ **Verify:** Check log: `cat /workspace/model_download.log`
 - ✅ **Retry:** Start manually with `/usr/local/bin/download_comfyui_models.sh`
@@ -220,11 +237,13 @@ See [troubleshooting.md](docs/troubleshooting.md) for detailed solutions.
 ## 🔄 Version & Updates
 
 The image is continuously updated and available as **`:latest`**:
+
 ```bash
 docker pull ecomtree/comfyui-cloud:latest
 ```
 
 **Current Features:**
+
 - ComfyUI v0.3.57
 - Automatic model download support
 - No Jupyter authentication
@@ -249,6 +268,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Maintained by:** [@sebastianhein](https://github.com/sebastianhein)  
+**Maintained by:** [@tensorvisuals](https://github.com/tensorvisuals)  
 **Status:** ✅ Production Ready  
 **Last Updated:** 2025-10-14

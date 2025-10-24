@@ -27,9 +27,10 @@ HF_TOKEN=hf_xxx
 > `HF_TOKEN` ist optional – ohne Token schlagen private/commercial Links (z. B. FLUX.1 Dev) mit **401 Unauthorized** fehl.
 
 **HF_TOKEN Format**:
+
 - Muss mit `hf_` beginnen und mindestens 10 Zeichen lang sein
 - Token ohne `hf_` Präfix oder leere Tokens werden ignoriert
-- Token bekommst du unter: https://huggingface.co/settings/tokens
+- Token bekommst du unter: <https://huggingface.co/settings/tokens>
 
 ### Manuelle Ausführung
 
@@ -177,4 +178,6 @@ Siehe `comfyui_models_complete_library.md` für detaillierte Lizenzinformationen
 
 ---
 
-*Erstellt von Sebastian - Oktober 2025*
+**Maintained by:** [@tensorvisuals](https://github.com/tensorvisuals)  
+**Status:** ✅ Production Ready  
+**Last Updated:** 2025-10-14
