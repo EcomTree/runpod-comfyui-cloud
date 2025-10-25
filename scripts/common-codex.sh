@@ -115,9 +115,9 @@ ensure_system_packages() {
 
     for pkg in "${packages[@]}"; do
         if dpkg -s "$pkg" >/dev/null 2>&1; then
-            log_success "$pkg available (package present)"
+            log_success "$pkg is installed"
         elif command_exists "$pkg"; then
-            log_success "$pkg available (command found)"
+            log_success "$pkg is available (command)"
         else
             missing+=("$pkg")
         fi
@@ -155,9 +155,9 @@ ensure_system_packages() {
 
     for pkg in "${missing[@]}"; do
         if dpkg -s "$pkg" >/dev/null 2>&1; then
-            log_success "$pkg installed (package present)"
+            log_success "$pkg installed successfully"
         elif command_exists "$pkg"; then
-            log_success "$pkg installed (command available)"
+            log_success "$pkg is now available (command)"
         else
             log_warning "$pkg installation failed"
         fi

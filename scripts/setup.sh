@@ -21,6 +21,38 @@ COMFYUI_MANAGER_REPO="https://github.com/ltdrdata/ComfyUI-Manager.git"
 COMFYUI_QUEUE_ENDPOINT="/queue"
 JUPYTER_ROOT_ENDPOINT="/"
 
+# Global variable for background download process PID
+MODEL_DOWNLOAD_PID=""
+
+# Cleanup function for model download process
+cleanup_model_download() {
+    if [ -n "$MODEL_DOWNLOAD_PID" ] && kill -0 "$MODEL_DOWNLOAD_PID" 2>/dev/null; then
+        log_info "Cleaning up model download process (PID: $MODEL_DOWNLOAD_PID)"
+        
+        # Try graceful SIGTERM first
+        kill -TERM "$MODEL_DOWNLOAD_PID" 2>/dev/null
+        
+        # Wait up to 5 seconds for graceful exit
+        local wait_count=0
+        while [ $wait_count -lt 5 ]; do
+            sleep 1
+            if ! kill -0 "$MODEL_DOWNLOAD_PID" 2>/dev/null; then
+                log_success "Model download process terminated gracefully"
+                MODEL_DOWNLOAD_PID=""
+                return 0
+            fi
+            wait_count=$((wait_count + 1))
+        done
+        
+        # Force kill if still running
+        if kill -0 "$MODEL_DOWNLOAD_PID" 2>/dev/null; then
+            log_info "Model download process did not exit after SIGTERM, sending SIGKILL"
+            kill -KILL "$MODEL_DOWNLOAD_PID" 2>/dev/null
+            MODEL_DOWNLOAD_PID=""
+        fi
+    fi
+}
+
 # Get script directory
 get_script_dir() {
     local source="${BASH_SOURCE[0]:-$0}"
@@ -274,30 +306,24 @@ download_models() {
         
         # Run download in background and log output
         python3 scripts/download_models.py > "$WORKSPACE_DIR/logs/model_download.log" 2>&1 &
-        local download_pid=$!
+        MODEL_DOWNLOAD_PID=$!
         
-        # Trap to clean up background download process if script exits or is interrupted
-        # Uses graceful SIGTERM first, then SIGKILL if process doesn't exit
-        trap 'if kill -0 '"$download_pid"' 2>/dev/null; then \
-            log_info "Cleaning up model download process (PID: '"$download_pid"')"; \
-            kill -TERM '"$download_pid"' 2>/dev/null; \
-            for i in {1..5}; do \
-                sleep 1; \
-                if ! kill -0 '"$download_pid"' 2>/dev/null; then break; fi; \
-            done; \
-            if kill -0 '"$download_pid"' 2>/dev/null; then \
-                log_info "Model download process did not exit after SIGTERM, sending SIGKILL"; \
-                kill -KILL '"$download_pid"' 2>/dev/null; \
-            fi; \
-        fi' EXIT INT TERM
+        # Set up trap to clean up background process on script exit or interruption
+        trap cleanup_model_download EXIT INT TERM
         
-        log_info "Model download started (PID: $download_pid)"
+        log_info "Model download started (PID: $MODEL_DOWNLOAD_PID)"
         log_info "Monitor progress: tail -f $WORKSPACE_DIR/logs/model_download.log"
         
         # Don't wait for download to complete - let it run in background
         log_success "Model download running in background"
     else
         log_warning "Model download script not found - skipping"
+    fi
+    
+    # Reset trap after successful setup (only cleanup on actual error/interrupt)
+    if [ -n "$MODEL_DOWNLOAD_PID" ]; then
+        trap - EXIT
+        trap cleanup_model_download INT TERM
     fi
 }
 
