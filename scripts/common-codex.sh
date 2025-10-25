@@ -1,9 +1,6 @@
 #!/bin/bash
 # Common helper functions for Codex setup scripts
 # Provides shared utilities for RunPod ComfyUI Cloud setup
-# Enhanced with features from serverless project
-
-set -eo pipefail
 
 # Prevent multiple loading
 if [[ -z "${CODEX_COMMON_HELPERS_LOADED:-}" ]]; then
@@ -22,19 +19,36 @@ MIN_CUDA_MINOR=8
 
 # Logging functions
 log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    printf "%b\n" "${BLUE}ℹ️  $1${NC}"
 }
 
 log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    printf "%b\n" "${GREEN}✅ $1${NC}"
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    printf "%b\n" "${YELLOW}⚠️  $1${NC}" >&2
 }
 
 log_error() {
-    echo -e "${RED}❌ $1${NC}"
+    printf "%b\n" "${RED}❌ $1${NC}" >&2
+}
+
+# Alias functions for compatibility with echo_* naming convention
+echo_info() {
+    log_info "$@"
+}
+
+echo_success() {
+    log_success "$@"
+}
+
+echo_warning() {
+    log_warning "$@"
+}
+
+echo_error() {
+    log_error "$@"
 }
 
 # Check if a command exists
@@ -94,44 +108,16 @@ dir_exists() {
     [ -d "$1" ] && [ -x "$1" ]
 }
 
-# Download a file with error handling
-download_file() {
-    local url="$1"
-    local output="$2"
-    local description="${3:-file}"
-    
-    log_info "Downloading $description from $url..."
-    
-    if command_exists curl; then
-        if curl -fsSL --retry 3 --retry-delay 2 --retry-connrefused "$url" -o "$output"; then
-            log_success "Downloaded $description successfully"
-            return 0
-        else
-            log_error "Failed to download $description using curl"
-            return 1
-        fi
-    elif command_exists wget; then
-        if wget -q --show-progress --tries=3 --waitretry=2 -O "$output" "$url"; then
-            log_success "Downloaded $description successfully"
-            return 0
-        else
-            log_error "Failed to download $description using wget"
-            return 1
-        fi
-    else
-        log_error "Neither curl nor wget found. Cannot download $description"
-        return 1
-    fi
-}
-
 # Install system packages with retry mechanism
-install_system_packages() {
+ensure_system_packages() {
     local packages=("$@")
     local missing=()
 
     for pkg in "${packages[@]}"; do
         if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
-            log_success "$pkg installed"
+            log_success "$pkg is installed"
+        elif command_exists "$pkg"; then
+            log_success "$pkg is available (command)"
         else
             missing+=("$pkg")
         fi
@@ -169,99 +155,13 @@ install_system_packages() {
 
     for pkg in "${missing[@]}"; do
         if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
-            log_success "$pkg installed"
+            log_success "$pkg installed successfully"
+        elif command_exists "$pkg"; then
+            log_success "$pkg is now available (command)"
         else
             log_warning "$pkg installation failed"
         fi
     done
-}
-
-# Verify system requirements
-check_system_requirements() {
-    log_info "Checking system requirements..."
-    
-    local missing_deps=()
-    
-    # Check for required commands
-    local required_commands=("python3" "git")
-    
-    # Check for pip (pip3 on macOS, pip on Linux)
-    if ! command_exists "pip" && ! command_exists "pip3"; then
-        missing_deps+=("pip")
-    fi
-    for cmd in "${required_commands[@]}"; do
-        if ! command_exists "$cmd"; then
-            missing_deps+=("$cmd")
-        fi
-    done
-    
-    if [ ${#missing_deps[@]} -gt 0 ]; then
-        log_error "Missing required dependencies: ${missing_deps[*]}"
-        log_info "Please install the missing dependencies and try again"
-        return 1
-    fi
-    
-    log_success "All system requirements met"
-    return 0
-}
-
-# Setup Python virtual environment
-setup_python_env() {
-    local venv_path="$1"
-    local requirements_file="${2:-requirements.txt}"
-    
-    log_info "Setting up Python virtual environment at $venv_path..."
-    
-    if [ -d "$venv_path" ]; then
-        log_warning "Virtual environment already exists at $venv_path"
-        if file_exists "$requirements_file"; then
-            log_info "Upgrading requirements in existing venv..."
-            "$venv_path/bin/pip" install -r "$requirements_file"
-        fi
-        return 0
-    fi
-    
-    if python3 -m venv "$venv_path"; then
-        log_success "Created virtual environment at $venv_path"
-        
-        # Activate and install requirements if file exists
-        if file_exists "$requirements_file"; then
-            log_info "Installing requirements from $requirements_file..."
-            if "$venv_path/bin/pip" install -r "$requirements_file"; then
-                log_success "Requirements installed successfully"
-            else
-                log_error "Failed to install requirements – environment is incomplete"
-                return 1
-            fi
-        fi
-        
-        return 0
-    else
-        log_error "Failed to create virtual environment at $venv_path"
-        return 1
-    fi
-}
-
-# Clone repository with error handling
-clone_repository() {
-    local repo_url="$1"
-    local target_dir="$2"
-    local branch="${3:-main}"
-    
-    log_info "Cloning repository $repo_url to $target_dir..."
-    
-    if [ -d "$target_dir" ]; then
-        log_warning "Directory $target_dir already exists"
-        return 0
-    fi
-    
-    if git clone --depth 1 --branch "$branch" "$repo_url" "$target_dir"; then
-        log_success "Repository cloned successfully"
-        return 0
-    else
-        log_error "Failed to clone repository $repo_url"
-        return 1
-    fi
 }
 
 # Check GPU availability and CUDA version
@@ -304,7 +204,6 @@ except Exception as e:
                         else
                             log_success "CUDA version detected: $cuda_ver"
                             # Validate and parse major.minor version for comparison using regex
-                            # Example valid CUDA version strings: "12.1", "11.8", "12.8"
                             if [[ "$cuda_ver" =~ ^([0-9]+)\.([0-9]+) ]]; then
                                 local major="${BASH_REMATCH[1]}"
                                 local minor="${BASH_REMATCH[2]}"
@@ -351,49 +250,6 @@ except Exception as e:
     fi
 }
 
-# Create directory structure
-create_directory_structure() {
-    local base_dir="$1"
-    local dirs=("models" "models/checkpoints" "models/vae" "models/loras" "models/controlnet" "models/upscale_models" "custom_nodes" "output")
-    
-    log_info "Creating directory structure in $base_dir..."
-    
-    for dir in "${dirs[@]}"; do
-        local full_path="$base_dir/$dir"
-        if ! dir_exists "$full_path"; then
-            if mkdir -p "$full_path"; then
-                log_success "Created directory: $full_path"
-            else
-                log_error "Failed to create directory: $full_path"
-                return 1
-            fi
-        else
-            log_info "Directory already exists: $full_path"
-        fi
-    done
-    
-    return 0
-}
-
-# Validate environment variables
-validate_env_vars() {
-    local required_vars=("$@")
-    local missing_vars=()
-    
-    for var in "${required_vars[@]}"; do
-        if [ -z "${!var}" ]; then
-            missing_vars+=("$var")
-        fi
-    done
-    
-    if [ ${#missing_vars[@]} -gt 0 ]; then
-        log_error "Missing required environment variables: ${missing_vars[*]}"
-        return 1
-    fi
-    
-    return 0
-}
-
 # Wait for service to be ready
 wait_for_service() {
     local url="$1"
@@ -419,45 +275,4 @@ wait_for_service() {
     return 1
 }
 
-# Cleanup function for trap
-cleanup() {
-    log_info "Cleaning up..."
-    # Add any cleanup logic here
-}
-
-# Set up signal handlers
-setup_signal_handlers() {
-    trap cleanup EXIT INT TERM
-}
-
-# Main initialization function
-init_codex_environment() {
-    log_info "Initializing Codex environment..."
-    
-    # Set up signal handlers
-    setup_signal_handlers
-    
-    # Check system requirements
-    if ! check_system_requirements; then
-        log_error "System requirements check failed"
-        exit 1
-    fi
-    
-    log_success "Codex environment initialized successfully"
-}
-
-# Export functions for use in other scripts
-export -f log_info log_success log_warning log_error
-export -f command_exists file_exists dir_exists
-export -f retry is_codex_environment resolve_path
-export -f download_file install_system_packages check_system_requirements setup_python_env
-export -f clone_repository check_gpu_requirements create_directory_structure
-export -f validate_env_vars wait_for_service cleanup setup_signal_handlers
-export -f init_codex_environment
-
 fi  # End of CODEX_COMMON_HELPERS_LOADED check
-
-# If script is executed directly, run initialization
-if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
-    init_codex_environment
-fi
