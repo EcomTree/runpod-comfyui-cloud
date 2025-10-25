@@ -98,14 +98,24 @@ else
     mkdir -p "$SCRIPT_DIR"
     
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "$HELPER_URL" -o "$COMMON_HELPERS"
-        echo "✅ Helper script downloaded successfully"
-        # shellcheck source=/dev/null
-        source "$COMMON_HELPERS"
+        if curl -fsSL "$HELPER_URL" -o "$COMMON_HELPERS"; then
+            echo "✅ Helper script downloaded successfully"
+            # shellcheck source=/dev/null
+            source "$COMMON_HELPERS"
+        else
+            echo "❌ Failed to download helper script from $HELPER_URL"
+            exit 1
+        fi
     else
         echo "❌ curl not found - cannot download helper script"
         exit 1
     fi
+fi
+
+# Validate that logging functions are available
+if ! command -v log_info >/dev/null 2>&1; then
+    echo "❌ Failed to load helper functions. Setup cannot continue."
+    exit 1
 fi
 
 # Detect environment
@@ -163,13 +173,16 @@ setup_workspace() {
     if [ -d "/workspace" ]; then
         cd /workspace
         WORKSPACE_DIR="/workspace"
+        export WORKSPACE_DIR
     else
         if mkdir -p /workspace 2>/dev/null; then
             cd /workspace
             WORKSPACE_DIR="/workspace"
+            export WORKSPACE_DIR
         else
             log_warning "Cannot create /workspace, using current directory"
             WORKSPACE_DIR="$(pwd)"
+            export WORKSPACE_DIR
         fi
     fi
     
@@ -334,22 +347,17 @@ download_models() {
             return 1
         fi
         
-        # Set up trap to clean up background process on script exit or interruption
-        trap cleanup_model_download EXIT INT TERM
-        
         log_info "Model download started (PID: $MODEL_DOWNLOAD_PID)"
         log_info "Monitor progress: tail -f $WORKSPACE_DIR/logs/model_download.log"
+        
+        # Set up trap to clean up background process on interruption only
+        # Note: We don't trap EXIT to allow the process to continue after script completes
+        trap cleanup_model_download INT TERM
         
         # Don't wait for download to complete - let it run in background
         log_success "Model download running in background"
     else
         log_warning "Model download script not found - skipping"
-    fi
-    
-    # Reset trap after successful setup (only cleanup on actual error/interrupt)
-    if [ -n "$MODEL_DOWNLOAD_PID" ]; then
-        trap - EXIT
-        trap cleanup_model_download INT TERM
     fi
 }
 
