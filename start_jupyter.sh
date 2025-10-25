@@ -1,7 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-set -euo pipefail
-
 # Ensure logs directory exists
 mkdir -p "/workspace/logs"
 
