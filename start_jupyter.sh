@@ -29,4 +29,4 @@ echo "Anyone with network access can execute arbitrary code." >&2
 jupyter lab --ip=0.0.0.0 --port=${JUPYTER_PORT:-8888} --no-browser --allow-root \
     --ServerApp.token='' --ServerApp.password='' \
     --NotebookApp.token='' --NotebookApp.password='' \
-    --notebook-dir="/workspace" > "/workspace/logs/jupyter.log" 2>&1
+    --notebook-dir="/workspace" >> "/workspace/logs/jupyter.log" 2>&1
