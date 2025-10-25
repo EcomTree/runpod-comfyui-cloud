@@ -114,7 +114,7 @@ ensure_system_packages() {
     local missing=()
 
     for pkg in "${packages[@]}"; do
-        if dpkg -s "$pkg" >/dev/null 2>&1; then
+        if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
             log_success "$pkg is installed"
         elif command_exists "$pkg"; then
             log_success "$pkg is available (command)"
@@ -154,7 +154,7 @@ ensure_system_packages() {
     fi
 
     for pkg in "${missing[@]}"; do
-        if dpkg -s "$pkg" >/dev/null 2>&1; then
+        if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
             log_success "$pkg installed successfully"
         elif command_exists "$pkg"; then
             log_success "$pkg is now available (command)"

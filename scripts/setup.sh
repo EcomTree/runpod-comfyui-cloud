@@ -25,9 +25,16 @@ JUPYTER_ROOT_ENDPOINT="/"
 MODEL_DOWNLOAD_PID=""
 
 # Cleanup function for model download process
+# Note: This function may be called before common-codex.sh is sourced,
+# so it uses fallback logging when log functions are not available
 cleanup_model_download() {
     if [ -n "$MODEL_DOWNLOAD_PID" ] && kill -0 "$MODEL_DOWNLOAD_PID" 2>/dev/null; then
-        log_info "Cleaning up model download process (PID: $MODEL_DOWNLOAD_PID)"
+        # Use log_info if available, otherwise fallback to echo
+        if command -v log_info >/dev/null 2>&1; then
+            log_info "Cleaning up model download process (PID: $MODEL_DOWNLOAD_PID)"
+        else
+            echo "ℹ️  Cleaning up model download process (PID: $MODEL_DOWNLOAD_PID)"
+        fi
         
         # Try graceful SIGTERM first
         kill -TERM "$MODEL_DOWNLOAD_PID" 2>/dev/null
@@ -37,7 +44,11 @@ cleanup_model_download() {
         while [ $wait_count -lt 5 ]; do
             sleep 1
             if ! kill -0 "$MODEL_DOWNLOAD_PID" 2>/dev/null; then
-                log_success "Model download process terminated gracefully"
+                if command -v log_success >/dev/null 2>&1; then
+                    log_success "Model download process terminated gracefully"
+                else
+                    echo "✅ Model download process terminated gracefully"
+                fi
                 MODEL_DOWNLOAD_PID=""
                 return 0
             fi
@@ -46,7 +57,11 @@ cleanup_model_download() {
         
         # Force kill if still running
         if kill -0 "$MODEL_DOWNLOAD_PID" 2>/dev/null; then
-            log_info "Model download process did not exit after SIGTERM, sending SIGKILL"
+            if command -v log_info >/dev/null 2>&1; then
+                log_info "Model download process did not exit after SIGTERM, sending SIGKILL"
+            else
+                echo "ℹ️  Model download process did not exit after SIGTERM, sending SIGKILL"
+            fi
             kill -KILL "$MODEL_DOWNLOAD_PID" 2>/dev/null
             MODEL_DOWNLOAD_PID=""
         fi
