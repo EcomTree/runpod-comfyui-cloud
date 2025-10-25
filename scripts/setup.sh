@@ -308,6 +308,16 @@ download_models() {
         python3 scripts/download_models.py > "$WORKSPACE_DIR/logs/model_download.log" 2>&1 &
         MODEL_DOWNLOAD_PID=$!
         
+        # Briefly wait and check if process started successfully
+        sleep 1
+        if ! kill -0 "$MODEL_DOWNLOAD_PID" 2>/dev/null; then
+            log_error "Model download process failed to start (PID: $MODEL_DOWNLOAD_PID)."
+            log_error "Last 10 lines of log:"
+            tail -n 10 "$WORKSPACE_DIR/logs/model_download.log" || true
+            MODEL_DOWNLOAD_PID=""
+            return 1
+        fi
+        
         # Set up trap to clean up background process on script exit or interruption
         trap cleanup_model_download EXIT INT TERM
         
