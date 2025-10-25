@@ -164,6 +164,11 @@ main() {
     
     # Show summary
     show_summary
+    
+    # Unset the trap after successful setup completion to allow background downloads to continue
+    # independently. This prevents the trap from interfering with the naturally exiting script
+    # while still providing cleanup during the setup phase if interrupted.
+    trap - INT TERM
 }
 
 # Setup workspace directory
@@ -390,8 +395,8 @@ EOF
         nohup "$WORKSPACE_DIR/start_comfyui.sh" &
         log_success "ComfyUI started on port ${COMFYUI_PORT:-8188}"
         
-        # Start Jupyter
-        nohup "$WORKSPACE_DIR/start_jupyter.sh" &
+        # Start Jupyter (with explicit opt-in for no-auth in trusted container environment)
+        JUPYTER_ALLOW_NO_AUTH=true nohup "$WORKSPACE_DIR/start_jupyter.sh" &
         log_success "Jupyter Lab started on port ${JUPYTER_PORT:-8888}"
         
         # Wait a bit for services to start
