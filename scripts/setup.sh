@@ -356,6 +356,10 @@ download_models() {
         
         # Don't wait for download to complete - let it run in background
         log_success "Model download running in background"
+        
+        # Unset the trap after successful setup to prevent interference with subsequent operations
+        # The cleanup function will still work if called directly due to the process existence check
+        trap - INT TERM
     else
         log_warning "Model download script not found - skipping"
     fi
