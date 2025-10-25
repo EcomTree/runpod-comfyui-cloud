@@ -21,8 +21,9 @@ COMFYUI_MANAGER_REPO="https://github.com/ltdrdata/ComfyUI-Manager.git"
 COMFYUI_QUEUE_ENDPOINT="/queue"
 JUPYTER_ROOT_ENDPOINT="/"
 
-# Global variable for background download process PID
+# Global variables
 MODEL_DOWNLOAD_PID=""
+WORKSPACE_DIR=""
 
 # Cleanup function for model download process
 # Note: This function may be called before common-codex.sh is sourced,
