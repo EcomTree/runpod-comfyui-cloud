@@ -155,7 +155,7 @@ cat /workspace/model_download.log
 
 The image supports automatic downloading of all validated ComfyUI models at startup:
 
-**Option 1: RunPod Environment Variables**
+### Option 1: RunPod Environment Variables
 
 ```bash
 # In RunPod Pod Settings under "Environment Variables"
@@ -164,7 +164,7 @@ HF_TOKEN=hf_xxxxxxxxxxxxx  # Optional: for protected Hugging Face models
 JUPYTER_ENABLE=true        # Optional: enable Jupyter Lab on port 8888
 ```
 
-**Option 2: Docker Run**
+### Option 2: Docker Run
 
 ```bash
 docker run \

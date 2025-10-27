@@ -199,8 +199,8 @@ du -sh /workspace/ComfyUI/models/*
 ```bash
 # Links erneut überprüfen
 cd /workspace
-source model_dl_venv/bin/activate
-python3 scripts/verify_links.py
+source /opt/runpod/model_dl_venv/bin/activate
+python3 /opt/runpod/scripts/verify_links.py
 ```
 
 ## Statistiken
