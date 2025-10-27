@@ -47,8 +47,8 @@ Oder direkt mit Python:
 ```bash
 # Im Container
 cd /workspace
-source model_dl_venv/bin/activate
-python3 scripts/download_models.py /workspace
+source /opt/runpod/model_dl_venv/bin/activate
+python3 /opt/runpod/scripts/download_models.py /workspace
 ```
 
 ## Voraussetzungen
@@ -140,9 +140,9 @@ docker logs <container_name> | tail -50
 # Model-Download manuell triggern
 docker exec <container_name> bash -c "
     cd /workspace
-    source model_dl_venv/bin/activate
-    python3 scripts/verify_links.py
-    python3 scripts/download_models.py /workspace
+    source /opt/runpod/model_dl_venv/bin/activate
+    python3 /opt/runpod/scripts/verify_links.py
+    python3 /opt/runpod/scripts/download_models.py /workspace
 "
 ```
 
@@ -152,10 +152,10 @@ Für eine interaktivere Erfahrung gibt es ein spezielles Manual-Download-Script:
 
 ```bash
 # Im Container ausführen
-docker exec -it <container_name> /workspace/scripts/manual_download.sh
+docker exec -it <container_name> /opt/runpod/scripts/manual_download.sh
 
 # Oder direkt aus dem Host
-docker exec <container_name> bash /workspace/scripts/manual_download.sh
+docker exec <container_name> bash /opt/runpod/scripts/manual_download.sh
 ```
 
 Das Manual-Download-Script bietet:
@@ -180,8 +180,8 @@ Das Manual-Download-Script bietet:
 ```bash
 # Erneut versuchen
 cd /workspace
-source model_dl_venv/bin/activate
-python3 scripts/download_models.py /workspace
+source /opt/runpod/model_dl_venv/bin/activate
+python3 /opt/runpod/scripts/download_models.py /workspace
 ```
 
 ### Speicherplatz prüfen
@@ -199,8 +199,8 @@ du -sh /workspace/ComfyUI/models/*
 ```bash
 # Links erneut überprüfen
 cd /workspace
-source model_dl_venv/bin/activate
-python3 scripts/verify_links.py
+source /opt/runpod/model_dl_venv/bin/activate
+python3 /opt/runpod/scripts/verify_links.py
 ```
 
 ## Statistiken
