@@ -127,24 +127,53 @@ docker buildx build --platform linux/amd64 -f Dockerfile -t ecomtree/comfyui-clo
 ./scripts/test.sh
 ```
 
+### Deployment Checklist
+
+```bash
+# Build image locally
+./scripts/build.sh
+
+docker run -it \
+  -e DOWNLOAD_MODELS=true \
+  -e JUPYTER_ENABLE=true \
+  -e HF_TOKEN=<optional-hf-token> \
+  -p 8188:8188 \
+  -p 8888:8888 \
+  -v $(pwd)/workspace:/workspace \
+  ecomtree/comfyui-cloud:latest
+
+# Inside container, confirm Jupyter
+curl http://localhost:8888
+
+# Confirm download logs
+cat /workspace/model_download.log
+```
+
 ## 🔧 Configuration
 
 ### 🤖 Automatic Model Download
 
 The image supports automatic downloading of all validated ComfyUI models at startup:
 
-**Option 1: RunPod Environment Variable**
+**Option 1: RunPod Environment Variables**
 
 ```bash
 # In RunPod Pod Settings under "Environment Variables"
 DOWNLOAD_MODELS=true
 HF_TOKEN=hf_xxxxxxxxxxxxx  # Optional: for protected Hugging Face models
+JUPYTER_ENABLE=true        # Optional: enable Jupyter Lab on port 8888
 ```
 
 **Option 2: Docker Run**
 
 ```bash
-docker run -e DOWNLOAD_MODELS=true -e HF_TOKEN=hf_xxx ecomtree/comfyui-cloud:latest
+docker run \
+  -e DOWNLOAD_MODELS=true \
+  -e HF_TOKEN=hf_xxx \
+  -e JUPYTER_ENABLE=true \
+  -p 8188:8188 \
+  -p 8888:8888 \
+  ecomtree/comfyui-cloud:latest
 ```
 
 **Manual Download (in running container)**
@@ -154,8 +183,10 @@ docker run -e DOWNLOAD_MODELS=true -e HF_TOKEN=hf_xxx ecomtree/comfyui-cloud:lat
 docker exec -it <container_name> /usr/local/bin/download_comfyui_models.sh
 
 # Or Python script directly
-docker exec -it <container_name> python3 /workspace/scripts/download_models.py /workspace
+docker exec -it <container_name> python3 /opt/runpod/scripts/download_models.py /workspace
 ```
+
+> See `docs/environment-variables.md` for the full list of tunables.
 
 **Notes:**
 

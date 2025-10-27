@@ -1,0 +1,33 @@
+# RunPod Environment Variables
+
+## Required Variables
+
+### Enable Jupyter Lab
+- **Variable**: `JUPYTER_ENABLE`
+- **Value**: `true`
+- **Description**: Launches Jupyter Lab on port 8888 without authentication.
+
+### Enable Model Downloads
+- **Variable**: `DOWNLOAD_MODELS`
+- **Value**: `true`
+- **Description**: Starts the automatic ComfyUI model download routine during container boot.
+
+## Optional Variables
+
+### Hugging Face Token
+- **Variable**: `HF_TOKEN`
+- **Value**: `<your-hf-token>`
+- **Description**: Grants access to gated Hugging Face models while downloading.
+
+### Custom Workspace Path
+- **Variable**: `WORKSPACE_DIR`
+- **Value**: `/workspace`
+- **Description**: Override only if your RunPod volume mounts to a different path.
+
+## Usage Tips
+- Set these variables in the RunPod pod template before launching.
+- When running locally, pass them with `docker run -e VAR=value`.
+- For sensitive values such as `HF_TOKEN`, prefer RunPod secrets or `.env` files.
+### Ports
+- **Port 8188**: ComfyUI web interface.
+- **Port 8888**: Jupyter Lab (only available when `JUPYTER_ENABLE=true`).

@@ -27,13 +27,13 @@ fi
 # Check if virtual environment exists
 echo ""
 echo "🔍 Checking virtual environment..."
-if [ ! -d "model_dl_venv" ]; then
+if [ ! -d "/opt/runpod/model_dl_venv" ]; then
     echo "❌ Virtual environment not found!"
     echo "💡 This suggests the container wasn't built correctly"
     exit 1
 fi
 
-if [ ! -f "model_dl_venv/bin/activate" ]; then
+if [ ! -f "/opt/runpod/model_dl_venv/bin/activate" ]; then
     echo "❌ Virtual environment activation script missing!"
     exit 1
 fi
@@ -43,12 +43,12 @@ echo "✅ Virtual environment found"
 # Check if scripts exist
 echo ""
 echo "🔍 Checking download scripts..."
-if [ ! -f "scripts/verify_links.py" ]; then
+if [ ! -f "/opt/runpod/scripts/verify_links.py" ]; then
     echo "❌ verify_links.py not found!"
     exit 1
 fi
 
-if [ ! -f "scripts/download_models.py" ]; then
+if [ ! -f "/opt/runpod/scripts/download_models.py" ]; then
     echo "❌ download_models.py not found!"
     exit 1
 fi
@@ -108,7 +108,7 @@ echo "🚀 Step 1: Verifying links..."
 echo "This may take a few minutes..."
 echo ""
 
-source model_dl_venv/bin/activate
+source /opt/runpod/model_dl_venv/bin/activate
 
 if [ -z "$VIRTUAL_ENV" ]; then
     echo "❌ Failed to activate virtual environment!"
@@ -117,7 +117,7 @@ fi
 
 echo "✅ Virtual environment activated: $VIRTUAL_ENV"
 
-python3 scripts/verify_links.py
+python3 /opt/runpod/scripts/verify_links.py
 
 if [ ! -f "link_verification_results.json" ]; then
     echo "❌ Link verification failed!"
@@ -170,7 +170,7 @@ if [ -t 0 ]; then
 fi
 
 echo "⬇️  Starting download..."
-python3 scripts/download_models.py /workspace
+python3 /opt/runpod/scripts/download_models.py /workspace
 
 echo ""
 echo "✅ Manual download completed!"

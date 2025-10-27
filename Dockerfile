@@ -74,12 +74,11 @@ RUN set -e; \
 
 # Copy model documentation and scripts into the image
 COPY comfyui_models_complete_library.md /opt/runpod/
-COPY scripts/verify_links.py scripts/download_models.py /workspace/scripts/
+COPY scripts/verify_links.py scripts/download_models.py /opt/runpod/scripts/
 
 # Create virtual environment for download scripts
-RUN cd /workspace && \
-    python3 -m venv model_dl_venv && \
-    /workspace/model_dl_venv/bin/pip install --no-cache-dir requests==2.31.0
+RUN python3 -m venv /opt/runpod/model_dl_venv && \
+    /opt/runpod/model_dl_venv/bin/pip install --no-cache-dir requests==2.31.0
 
 # Create model download script (runs only when DOWNLOAD_MODELS=true)
 RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
@@ -134,10 +133,10 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
     # Check if virtual environment exists
     echo "🔍 DEBUG: Checking virtual environment..."
-    if [ -d "model_dl_venv" ]; then
+    if [ -d "/opt/runpod/model_dl_venv" ]; then
         echo "✅ Virtual environment found"
         echo "🔍 DEBUG: Checking activation script..."
-        if [ -f "model_dl_venv/bin/activate" ]; then
+        if [ -f "/opt/runpod/model_dl_venv/bin/activate" ]; then
             echo "✅ Activation script found"
         else
             echo "❌ Activation script missing!"
@@ -150,15 +149,15 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
     # Check if scripts exist
     echo "🔍 DEBUG: Checking download scripts..."
-    if [ -f "/workspace/scripts/verify_links.py" ]; then
+    if [ -f "/opt/runpod/scripts/verify_links.py" ]; then
         echo "✅ verify_links.py found"
     else
         echo "❌ verify_links.py NOT found"
-        echo "Available files in /workspace/scripts/:"
-        ls -la /workspace/scripts/ || true
+        echo "Available files in /opt/runpod/scripts/:"
+        ls -la /opt/runpod/scripts/ || true
     fi
 
-    if [ -f "/workspace/scripts/download_models.py" ]; then
+    if [ -f "/opt/runpod/scripts/download_models.py" ]; then
         echo "✅ download_models.py found"
     else
         echo "❌ download_models.py NOT found"
@@ -176,7 +175,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
         # Activate virtual environment
         echo \"🔍 DEBUG: Activating virtual environment...\"
-        source model_dl_venv/bin/activate || {
+        source /opt/runpod/model_dl_venv/bin/activate || {
             echo \"❌ Failed to activate virtual environment!\"
             exit 1
         }
@@ -185,7 +184,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
         echo \"🔍 DEBUG: Checking for link verification results...\"
         if [ ! -f \"link_verification_results.json\" ]; then
             echo \"🔍 Checking link accessibility...\"
-            if ! python3 /workspace/scripts/verify_links.py; then
+            if ! python3 /opt/runpod/scripts/verify_links.py; then
                 verify_exit=\$?
                 echo \"❌ Link verification failed!\"
                 echo \"   Exit code: \$verify_exit\"
@@ -209,7 +208,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
 
         # Download models
         echo \"⬇️  Starting model download...\"
-        if ! python3 /workspace/scripts/download_models.py /workspace; then
+        if ! python3 /opt/runpod/scripts/download_models.py /workspace; then
             download_exit=\$?
             echo \"❌ Model download failed!\"
             echo \"   Exit code: \$download_exit\"

@@ -130,7 +130,7 @@ MODELS = {
 
 Then run:
 ```bash
-python3 /workspace/scripts/download_models.py
+python3 /opt/runpod/scripts/download_models.py
 ```
 
 ---
@@ -154,7 +154,7 @@ tail -50 /workspace/logs/model_download.log
 
 # Manually download models
 cd /workspace
-python3 scripts/download_models.py
+python3 /opt/runpod/scripts/download_models.py
 ```
 
 ### Out of disk space?
