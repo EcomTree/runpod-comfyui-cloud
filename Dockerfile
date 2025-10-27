@@ -76,6 +76,7 @@ RUN set -e; \
 COPY comfyui_models_complete_library.md /opt/runpod/
 RUN mkdir -p /opt/runpod/scripts
 COPY scripts/verify_links.py scripts/download_models.py scripts/manual_download.sh /opt/runpod/scripts/
+RUN chmod +x /opt/runpod/scripts/*.sh
 
 # Create virtual environment for download scripts
 RUN python3 -m venv /opt/runpod/model_dl_venv && \
