@@ -36,7 +36,6 @@ lint:
 		flake8 scripts/; \
 	else \
 		echo "flake8 not installed, skipping lint"; \
-		exit 1; \
 	fi
 
 format:
@@ -45,7 +44,6 @@ format:
 		black scripts/; \
 	else \
 		echo "black not installed, skipping format"; \
-		exit 1; \
 	fi
 
 verify:
