@@ -458,7 +458,7 @@ echo "🔍 DEBUG: DOWNLOAD_MODELS raw='${DOWNLOAD_MODELS_DISPLAY}' normalized='$
 export DOWNLOAD_MODELS="${DOWNLOAD_MODELS_VALUE}"
 
 # Start Jupyter Lab in the background (port 8888)
-if [ "${JUPYTER_ENABLE_VALUE}" = "true" ]; then
+if [ "${JUPYTER_ENABLE_VALUE:-false}" = "true" ]; then
   echo "📊 Starting Jupyter Lab on port 8888..."
   cd /workspace
   
