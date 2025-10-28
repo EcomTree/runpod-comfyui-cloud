@@ -398,6 +398,8 @@ if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
     fi
     nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
         --ServerApp.password="${HASHED_PASSWORD}" \
+        --NotebookApp.password='' \
+        --NotebookApp.token='' \
         --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
     echo "✅ Jupyter Lab started in background (password protected)"
   else
@@ -405,6 +407,7 @@ if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
     echo "⚠️  Starting Jupyter Lab WITHOUT authentication"
     env JUPYTER_ALLOW_NO_AUTH=true nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
         --ServerApp.token='' --ServerApp.password='' \
+        --NotebookApp.token='' --NotebookApp.password='' \
         --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
     echo "✅ Jupyter Lab started in background (no auth required)"
   fi
