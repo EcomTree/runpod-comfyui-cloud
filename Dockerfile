@@ -86,11 +86,41 @@ RUN python3 -m venv /opt/runpod/model_dl_venv && \
 RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
 #!/bin/bash
 
+normalize_flag() {
+    local raw="$1"
+    local lowered
+    lowered="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+    case "$lowered" in
+        1|true|yes|on)
+            printf "true"
+            return 0
+            ;;
+        0|false|no|off|'')
+            printf "false"
+            return 0
+            ;;
+        *)
+            printf "false"
+            return 1
+            ;;
+    esac
+}
+
 # Read environment variables at runtime (values from docker run -e flags)
 echo "🔍 DEBUG: Environment variables (read at runtime):"
-DOWNLOAD_MODELS="${DOWNLOAD_MODELS:-false}"
 HF_TOKEN="${HF_TOKEN:-}"
-echo "   DOWNLOAD_MODELS='$DOWNLOAD_MODELS'"
+DOWNLOAD_MODELS_RAW="${DOWNLOAD_MODELS:-}"
+DOWNLOAD_MODELS_VALUE="$(normalize_flag "$DOWNLOAD_MODELS_RAW")"
+DOWNLOAD_MODELS_STATUS=$?
+DOWNLOAD_MODELS_DISPLAY="$DOWNLOAD_MODELS_RAW"
+if [ -z "$DOWNLOAD_MODELS_DISPLAY" ]; then
+    DOWNLOAD_MODELS_DISPLAY="<unset>"
+fi
+if [ $DOWNLOAD_MODELS_STATUS -ne 0 ]; then
+    echo "⚠️  Unrecognized value for DOWNLOAD_MODELS ('${DOWNLOAD_MODELS_DISPLAY}'). Defaulting to disabled."
+fi
+echo "   DOWNLOAD_MODELS raw='${DOWNLOAD_MODELS_DISPLAY}' normalized='${DOWNLOAD_MODELS_VALUE}'"
+DOWNLOAD_MODELS="${DOWNLOAD_MODELS_VALUE}"
 if [ -n "$HF_TOKEN" ]; then
     echo "   HF_TOKEN='YES'"
 else
@@ -226,9 +256,7 @@ if [ "$DOWNLOAD_MODELS" = "true" ]; then
     echo "   Note: This is the PID of the wrapper process, not the actual Python script."
     echo "   Use 'pgrep -f download_models.py' to find the actual process PID."
 else
-    echo "ℹ️  Model download skipped (DOWNLOAD_MODELS != true)"
-    echo "🔍 DEBUG: DOWNLOAD_MODELS value was: '$DOWNLOAD_MODELS'"
-    echo "🔍 DEBUG: Expected value: 'true'"
+    echo "ℹ️  Model download skipped (raw='${DOWNLOAD_MODELS_DISPLAY}', normalized='${DOWNLOAD_MODELS}')."
 fi
 EOF
 
@@ -271,6 +299,26 @@ EOF
 RUN <<EOF cat > /usr/local/bin/start_comfyui_h200.sh
 #!/bin/bash
 set -e
+
+normalize_flag() {
+    local raw="$1"
+    local lowered
+    lowered="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+    case "$lowered" in
+        1|true|yes|on)
+            printf "true"
+            return 0
+            ;;
+        0|false|no|off|'')
+            printf "false"
+            return 0
+            ;;
+        *)
+            printf "false"
+            return 1
+            ;;
+    esac
+}
 
 echo "🚀 Starting ComfyUI + Jupyter Lab for H200 (Docker Version)"
 echo "=================================================="
@@ -378,8 +426,39 @@ else
     echo "ℹ️ Preserving existing extra_model_paths.yaml"
 fi
 
+# Normalize runtime feature flags
+JUPYTER_ENABLE_RAW="${JUPYTER_ENABLE:-}"
+set +e
+JUPYTER_ENABLE_VALUE="$(normalize_flag "$JUPYTER_ENABLE_RAW")"
+JUPYTER_ENABLE_STATUS=$?
+set -e
+JUPYTER_ENABLE_DISPLAY="$JUPYTER_ENABLE_RAW"
+if [ -z "$JUPYTER_ENABLE_DISPLAY" ]; then
+    JUPYTER_ENABLE_DISPLAY="<unset>"
+fi
+if [ $JUPYTER_ENABLE_STATUS -ne 0 ]; then
+    echo "⚠️  Unrecognized value for JUPYTER_ENABLE ('${JUPYTER_ENABLE_DISPLAY}'). Defaulting to disabled."
+fi
+echo "🔍 DEBUG: JUPYTER_ENABLE raw='${JUPYTER_ENABLE_DISPLAY}' normalized='${JUPYTER_ENABLE_VALUE}'"
+export JUPYTER_ENABLE="${JUPYTER_ENABLE_VALUE}"
+
+DOWNLOAD_MODELS_RAW="${DOWNLOAD_MODELS:-}"
+set +e
+DOWNLOAD_MODELS_VALUE="$(normalize_flag "$DOWNLOAD_MODELS_RAW")"
+DOWNLOAD_MODELS_STATUS=$?
+set -e
+DOWNLOAD_MODELS_DISPLAY="$DOWNLOAD_MODELS_RAW"
+if [ -z "$DOWNLOAD_MODELS_DISPLAY" ]; then
+    DOWNLOAD_MODELS_DISPLAY="<unset>"
+fi
+if [ $DOWNLOAD_MODELS_STATUS -ne 0 ]; then
+    echo "⚠️  Unrecognized value for DOWNLOAD_MODELS ('${DOWNLOAD_MODELS_DISPLAY}'). Defaulting to disabled."
+fi
+echo "🔍 DEBUG: DOWNLOAD_MODELS raw='${DOWNLOAD_MODELS_DISPLAY}' normalized='${DOWNLOAD_MODELS_VALUE}'"
+export DOWNLOAD_MODELS="${DOWNLOAD_MODELS_VALUE}"
+
 # Start Jupyter Lab in the background (port 8888)
-if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
+if [ "${JUPYTER_ENABLE_VALUE}" = "true" ]; then
   echo "📊 Starting Jupyter Lab on port 8888..."
   cd /workspace
   
@@ -443,7 +522,7 @@ touch /workspace/model_download.log
 /usr/local/bin/download_comfyui_models.sh
 
 # Wait for the background model downloader only when enabled
-if [ "${DOWNLOAD_MODELS:-false}" = "true" ]; then
+if [ "${DOWNLOAD_MODELS_VALUE}" = "true" ]; then
     echo "⏳ Waiting for model download to start writing logs..."
     MAX_WAIT_SECONDS=${DOWNLOAD_LOG_WAIT_SECS:-10}
     WAIT_COUNT=0
@@ -461,7 +540,7 @@ if [ "${DOWNLOAD_MODELS:-false}" = "true" ]; then
         echo "   This can occur if downloads are slow to start."
     fi
 else
-    echo "ℹ️  DOWNLOAD_MODELS is not 'true'; skipping log wait."
+    echo "ℹ️  DOWNLOAD_MODELS disabled (raw='${DOWNLOAD_MODELS_DISPLAY}', normalized='${DOWNLOAD_MODELS_VALUE}'); skipping log wait."
 fi
 
 cd /workspace/ComfyUI
