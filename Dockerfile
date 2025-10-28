@@ -124,7 +124,7 @@ DOWNLOAD_MODELS_DISPLAY="$DOWNLOAD_MODELS_RAW"
 if [ -z "$DOWNLOAD_MODELS_DISPLAY" ]; then
     DOWNLOAD_MODELS_DISPLAY="<unset>"
 fi
-if [ $DOWNLOAD_MODELS_STATUS -ne 0 ]; then
+if [ "$DOWNLOAD_MODELS_STATUS" -ne 0 ]; then
     echo "⚠️  Unrecognized value for DOWNLOAD_MODELS ('${DOWNLOAD_MODELS_DISPLAY}'). Defaulting to disabled."
 fi
 echo "   DOWNLOAD_MODELS raw='${DOWNLOAD_MODELS_DISPLAY}' normalized='${DOWNLOAD_MODELS_VALUE}'"
