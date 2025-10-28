@@ -5,7 +5,7 @@
 ### Enable Jupyter Lab
 - **Variable**: `JUPYTER_ENABLE`
 - **Value**: truthy (`true`, `1`, `yes`, `on`; case-insensitive)
-- **Description**: Launches Jupyter Lab on port 8888. Any other value disables Jupyter and triggers a startup warning.
+- **Description**: Launches Jupyter Lab on port 8888. Any other value (including unset) disables Jupyter Lab and triggers a startup warning for unrecognized values.
 
 ### Jupyter Password (Optional)
 - **Variable**: `JUPYTER_PASSWORD`
@@ -15,7 +15,7 @@
 ### Enable Model Downloads
 - **Variable**: `DOWNLOAD_MODELS`
 - **Value**: truthy (`true`, `1`, `yes`, `on`; case-insensitive)
-- **Description**: Starts the automatic ComfyUI model download routine during container boot. Download progress is written to `/workspace/model_download.log`.
+- **Description**: Starts the automatic ComfyUI model download routine during container boot. Download progress is written to `/workspace/model_download.log`. Any other value (including unset) disables model downloads; unrecognized values trigger a startup warning.
 
 ## Optional Variables
 

@@ -82,10 +82,9 @@ RUN chmod +x /opt/runpod/scripts/*.sh
 RUN python3 -m venv /opt/runpod/model_dl_venv && \
     /opt/runpod/model_dl_venv/bin/pip install --no-cache-dir "requests>=2.32.4"
 
-# Create model download script (runs only when DOWNLOAD_MODELS=true)
-RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
+# Provide shared utility for flag normalization to avoid duplication
+RUN <<'EOF' cat > /usr/local/bin/normalize_flag.sh
 #!/bin/bash
-
 normalize_flag() {
     local raw="$1"
     local lowered
@@ -105,13 +104,22 @@ normalize_flag() {
             ;;
     esac
 }
+EOF
+RUN chmod +x /usr/local/bin/normalize_flag.sh
+
+# Create model download script (runs only when DOWNLOAD_MODELS=true)
+RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
+#!/bin/bash
+
+source /usr/local/bin/normalize_flag.sh
 
 # Read environment variables at runtime (values from docker run -e flags)
 echo "🔍 DEBUG: Environment variables (read at runtime):"
 HF_TOKEN="${HF_TOKEN:-}"
 DOWNLOAD_MODELS_RAW="${DOWNLOAD_MODELS:-}"
-DOWNLOAD_MODELS_VALUE="$(normalize_flag "$DOWNLOAD_MODELS_RAW")"
-DOWNLOAD_MODELS_STATUS=$?
+NS_OUT="$(normalize_flag "$DOWNLOAD_MODELS_RAW"; printf ':%s' "$?")"
+DOWNLOAD_MODELS_VALUE="${NS_OUT%:*}"
+DOWNLOAD_MODELS_STATUS="${NS_OUT##*:}"
 DOWNLOAD_MODELS_DISPLAY="$DOWNLOAD_MODELS_RAW"
 if [ -z "$DOWNLOAD_MODELS_DISPLAY" ]; then
     DOWNLOAD_MODELS_DISPLAY="<unset>"
@@ -127,7 +135,7 @@ else
     echo "   HF_TOKEN='NO'"
 fi
 
-if [ "$DOWNLOAD_MODELS" = "true" ]; then
+if [ "${DOWNLOAD_MODELS_VALUE:-false}" = "true" ]; then
     echo "🚀 Starting automatic download of ComfyUI models in background..."
     echo "📁 This may take a long time and require significant storage!"
     echo "💾 Ensure the mounted volume has enough free space."
@@ -300,25 +308,7 @@ RUN <<EOF cat > /usr/local/bin/start_comfyui_h200.sh
 #!/bin/bash
 set -e
 
-normalize_flag() {
-    local raw="$1"
-    local lowered
-    lowered="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
-    case "$lowered" in
-        1|true|yes|on)
-            printf "true"
-            return 0
-            ;;
-        0|false|no|off|'')
-            printf "false"
-            return 0
-            ;;
-        *)
-            printf "false"
-            return 1
-            ;;
-    esac
-}
+source /usr/local/bin/normalize_flag.sh
 
 echo "🚀 Starting ComfyUI + Jupyter Lab for H200 (Docker Version)"
 echo "=================================================="
@@ -429,9 +419,10 @@ fi
 # Normalize runtime feature flags
 JUPYTER_ENABLE_RAW="${JUPYTER_ENABLE:-}"
 set +e
-JUPYTER_ENABLE_VALUE="$(normalize_flag "$JUPYTER_ENABLE_RAW")"
-JUPYTER_ENABLE_STATUS=$?
+NS_OUT="$(normalize_flag "$JUPYTER_ENABLE_RAW"; printf ':%s' "$?")"
 set -e
+JUPYTER_ENABLE_VALUE="${NS_OUT%:*}"
+JUPYTER_ENABLE_STATUS="${NS_OUT##*:}"
 JUPYTER_ENABLE_DISPLAY="$JUPYTER_ENABLE_RAW"
 if [ -z "$JUPYTER_ENABLE_DISPLAY" ]; then
     JUPYTER_ENABLE_DISPLAY="<unset>"
@@ -444,9 +435,10 @@ export JUPYTER_ENABLE="${JUPYTER_ENABLE_VALUE}"
 
 DOWNLOAD_MODELS_RAW="${DOWNLOAD_MODELS:-}"
 set +e
-DOWNLOAD_MODELS_VALUE="$(normalize_flag "$DOWNLOAD_MODELS_RAW")"
-DOWNLOAD_MODELS_STATUS=$?
+NS_OUT="$(normalize_flag "$DOWNLOAD_MODELS_RAW"; printf ':%s' "$?")"
 set -e
+DOWNLOAD_MODELS_VALUE="${NS_OUT%:*}"
+DOWNLOAD_MODELS_STATUS="${NS_OUT##*:}"
 DOWNLOAD_MODELS_DISPLAY="$DOWNLOAD_MODELS_RAW"
 if [ -z "$DOWNLOAD_MODELS_DISPLAY" ]; then
     DOWNLOAD_MODELS_DISPLAY="<unset>"
