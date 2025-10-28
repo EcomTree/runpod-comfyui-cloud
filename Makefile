@@ -52,7 +52,11 @@ verify:
 
 build:
 	@echo "Building Docker image..."
-	@./scripts/build.sh || docker build -t runpod-comfyui-cloud .
+	@if [ -f scripts/build.sh ]; then \
+		./scripts/build.sh; \
+	else \
+		docker build -t runpod-comfyui-cloud .; \
+	fi
 
 clean:
 	@echo "Cleaning build artifacts..."

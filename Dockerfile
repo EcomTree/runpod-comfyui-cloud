@@ -86,7 +86,7 @@ RUN python3 -m venv /opt/runpod/model_dl_venv && \
 RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
 #!/bin/bash
 
-# Read environment variables at runtime to capture values from docker run -e flags.
+# Read environment variables at runtime (values from docker run -e flags)
 echo "🔍 DEBUG: Environment variables (read at runtime):"
 DOWNLOAD_MODELS="${DOWNLOAD_MODELS:-false}"
 HF_TOKEN="${HF_TOKEN:-}"
@@ -442,22 +442,26 @@ touch /workspace/model_download.log
 
 /usr/local/bin/download_comfyui_models.sh
 
-# Wait for the background model downloader to write log content
-echo "⏳ Waiting for model download to start writing logs..."
-MAX_WAIT_SECONDS=${DOWNLOAD_LOG_WAIT_SECS:-10}
-WAIT_COUNT=0
-while [ ! -s "/workspace/model_download.log" ] && [ "$WAIT_COUNT" -lt "$MAX_WAIT_SECONDS" ]; do
-    sleep 1
-    WAIT_COUNT=$((WAIT_COUNT + 1))
-done
+# Wait for the background model downloader only when enabled
+if [ "${DOWNLOAD_MODELS:-false}" = "true" ]; then
+    echo "⏳ Waiting for model download to start writing logs..."
+    MAX_WAIT_SECONDS=${DOWNLOAD_LOG_WAIT_SECS:-10}
+    WAIT_COUNT=0
+    while [ ! -s "/workspace/model_download.log" ] && [ "$WAIT_COUNT" -lt "$MAX_WAIT_SECONDS" ]; do
+        sleep 1
+        WAIT_COUNT=$((WAIT_COUNT + 1))
+    done
 
-# Show the beginning of the model download log if it has content
-if [ -s "/workspace/model_download.log" ]; then
-    echo "📋 Recent model download log entries:"
-    tail -20 /workspace/model_download.log || true
+    # Show the beginning of the model download log if it has content
+    if [ -s "/workspace/model_download.log" ]; then
+        echo "📋 Recent model download log entries:"
+        tail -20 /workspace/model_download.log || true
+    else
+        echo "⚠️  Model download log is still empty after ${MAX_WAIT_SECONDS} seconds."
+        echo "   This can occur if downloads are slow to start."
+    fi
 else
-    echo "⚠️  Model download log is still empty after ${MAX_WAIT_SECONDS} seconds."
-    echo "   This is expected if DOWNLOAD_MODELS is not set to 'true' or if model downloads have not started yet."
+    echo "ℹ️  DOWNLOAD_MODELS is not 'true'; skipping log wait."
 fi
 
 cd /workspace/ComfyUI

@@ -2,7 +2,6 @@
 Basic tests for runpod-comfyui-cloud
 """
 import os
-import sys
 def test_imports():
     """Test that basic imports work and required deps are present"""
     import requests
