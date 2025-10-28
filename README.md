@@ -162,6 +162,7 @@ The image supports automatic downloading of all validated ComfyUI models at star
 DOWNLOAD_MODELS=true
 HF_TOKEN=hf_xxxxxxxxxxxxx  # Optional: for protected Hugging Face models
 JUPYTER_ENABLE=true        # Optional: enable Jupyter Lab on port 8888
+JUPYTER_PASSWORD=mypass123 # Optional: set password for Jupyter (recommended for security)
 ```
 
 ### Option 2: Docker Run
@@ -171,6 +172,7 @@ docker run \
   -e DOWNLOAD_MODELS=true \
   -e HF_TOKEN=hf_xxx \
   -e JUPYTER_ENABLE=true \
+  -e JUPYTER_PASSWORD=mypass123 \
   -p 8188:8188 \
   -p 8888:8888 \
   ecomtree/comfyui-cloud:latest

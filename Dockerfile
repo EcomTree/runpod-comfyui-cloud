@@ -86,10 +86,11 @@ RUN python3 -m venv /opt/runpod/model_dl_venv && \
 RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
 #!/bin/bash
 
-DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-false}
-HF_TOKEN=${HF_TOKEN:-}
-
-echo "🔍 DEBUG: Environment variables:"
+# Environment variables are already available at runtime
+# No need to set them explicitly here - they come from docker run -e flags
+echo "🔍 DEBUG: Environment variables (read at runtime):"
+DOWNLOAD_MODELS="${DOWNLOAD_MODELS:-false}"
+HF_TOKEN="${HF_TOKEN:-}"
 echo "   DOWNLOAD_MODELS='$DOWNLOAD_MODELS'"
 if [ -n "$HF_TOKEN" ]; then
     echo "   HF_TOKEN='YES'"
@@ -378,14 +379,29 @@ else
     echo "ℹ️ Preserving existing extra_model_paths.yaml"
 fi
 
-# Start Jupyter Lab in the background (port 8888) without token auth
+# Start Jupyter Lab in the background (port 8888)
 if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
   echo "📊 Starting Jupyter Lab on port 8888..."
   cd /workspace
-  nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
-      --NotebookApp.token='' --NotebookApp.password='' \
-      --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
-  echo "✅ Jupyter Lab started in background (no auth required)"
+  
+  # Check if password is set
+  if [ -n "${JUPYTER_PASSWORD:-}" ]; then
+    # Start with password authentication
+    echo "🔐 Using password authentication"
+    nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
+        --ServerApp.password="${JUPYTER_PASSWORD}" \
+        --NotebookApp.password="${JUPYTER_PASSWORD}" \
+        --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
+    echo "✅ Jupyter Lab started in background (password protected)"
+  else
+    # Start without auth (no password provided)
+    echo "⚠️  Starting Jupyter Lab WITHOUT authentication"
+    JUPYTER_ALLOW_NO_AUTH=true nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
+        --ServerApp.token='' --ServerApp.password='' \
+        --NotebookApp.token='' --NotebookApp.password='' \
+        --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
+    echo "✅ Jupyter Lab started in background (no auth required)"
+  fi
 else
   echo "ℹ️  Jupyter disabled (set JUPYTER_ENABLE=true to start)"
 fi
@@ -397,6 +413,10 @@ export TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
 # Download models if requested
 echo "🔍 Checking model download status..."
 echo "🔧 Running enhanced model download script..."
+
+# Create log file first to avoid "unary operator expected" errors
+touch /workspace/model_download.log
+
 /usr/local/bin/download_comfyui_models.sh
 
 # Wait for the log file to be created by the background process
