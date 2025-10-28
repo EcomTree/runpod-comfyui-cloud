@@ -427,7 +427,7 @@ JUPYTER_ENABLE_DISPLAY="$JUPYTER_ENABLE_RAW"
 if [ -z "$JUPYTER_ENABLE_DISPLAY" ]; then
     JUPYTER_ENABLE_DISPLAY="<unset>"
 fi
-if [ $JUPYTER_ENABLE_STATUS -ne 0 ]; then
+if [ "$JUPYTER_ENABLE_STATUS" -ne 0 ]; then
     echo "⚠️  Unrecognized value for JUPYTER_ENABLE ('${JUPYTER_ENABLE_DISPLAY}'). Defaulting to disabled."
 fi
 echo "🔍 DEBUG: JUPYTER_ENABLE raw='${JUPYTER_ENABLE_DISPLAY}' normalized='${JUPYTER_ENABLE_VALUE}'"
