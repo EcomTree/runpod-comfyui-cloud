@@ -1,14 +1,10 @@
 """
 Basic tests for runpod-comfyui-cloud
+
+Before running tests, install the package in editable mode:
+    pip install -e .
+This ensures imports work correctly and follows Python packaging best practices.
 """
-
-import sys
-import os
-
-# Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-
 def test_imports():
     """Test that basic imports work and required deps are present"""
     import requests
