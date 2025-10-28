@@ -522,7 +522,7 @@ touch /workspace/model_download.log
 /usr/local/bin/download_comfyui_models.sh
 
 # Wait for the background model downloader only when enabled
-if [ "${DOWNLOAD_MODELS_VALUE}" = "true" ]; then
+if [ "${DOWNLOAD_MODELS_VALUE:-false}" = "true" ]; then
     echo "⏳ Waiting for model download to start writing logs..."
     MAX_WAIT_SECONDS=${DOWNLOAD_LOG_WAIT_SECS:-10}
     WAIT_COUNT=0
