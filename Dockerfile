@@ -80,7 +80,7 @@ RUN chmod +x /opt/runpod/scripts/*.sh
 
 # Create virtual environment for download scripts
 RUN python3 -m venv /opt/runpod/model_dl_venv && \
-    /opt/runpod/model_dl_venv/bin/pip install --no-cache-dir requests==2.31.0
+    /opt/runpod/model_dl_venv/bin/pip install --no-cache-dir "requests>=2.32.4"
 
 # Create model download script (runs only when DOWNLOAD_MODELS=true)
 RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
