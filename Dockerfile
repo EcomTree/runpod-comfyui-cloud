@@ -28,7 +28,7 @@ RUN pip uninstall -y torch torchvision torchaudio xformers && \
     pip install --no-cache-dir ninja flash-attn --no-build-isolation && \
     pip install --no-cache-dir tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
 
-# Workspace einrichten
+# Setup workspace
 WORKDIR /workspace
 
 # Prepare directory for bundled assets
@@ -80,16 +80,16 @@ RUN chmod +x /opt/runpod/scripts/*.sh
 
 # Create virtual environment for download scripts
 RUN python3 -m venv /opt/runpod/model_dl_venv && \
-    /opt/runpod/model_dl_venv/bin/pip install --no-cache-dir requests==2.31.0
+    /opt/runpod/model_dl_venv/bin/pip install --no-cache-dir "requests>=2.32.4"
 
 # Create model download script (runs only when DOWNLOAD_MODELS=true)
 RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
 #!/bin/bash
 
-DOWNLOAD_MODELS=${DOWNLOAD_MODELS:-false}
-HF_TOKEN=${HF_TOKEN:-}
-
-echo "🔍 DEBUG: Environment variables:"
+# Read environment variables at runtime (values from docker run -e flags)
+echo "🔍 DEBUG: Environment variables (read at runtime):"
+DOWNLOAD_MODELS="${DOWNLOAD_MODELS:-false}"
+HF_TOKEN="${HF_TOKEN:-}"
 echo "   DOWNLOAD_MODELS='$DOWNLOAD_MODELS'"
 if [ -n "$HF_TOKEN" ]; then
     echo "   HF_TOKEN='YES'"
@@ -378,14 +378,53 @@ else
     echo "ℹ️ Preserving existing extra_model_paths.yaml"
 fi
 
-# Start Jupyter Lab in the background (port 8888) without token auth
+# Start Jupyter Lab in the background (port 8888)
 if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
   echo "📊 Starting Jupyter Lab on port 8888..."
   cd /workspace
-  nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
-      --NotebookApp.token='' --NotebookApp.password='' \
-      --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
-  echo "✅ Jupyter Lab started in background (no auth required)"
+  
+  # Check if password is set
+  if [ -n "${JUPYTER_PASSWORD:-}" ]; then
+    # Start with password authentication
+    echo "🔐 Using password authentication"
+    # Hash the password without exposing it via command-line args
+    HASHED_PASSWORD_AND_ERROR=$(python3 - <<'PY'
+import os
+import sys
+try:
+    from jupyter_server.auth import passwd
+except ImportError as e:
+    print(f"IMPORT_ERROR: {e}", file=sys.stderr)
+    sys.exit(2)
+try:
+    password = os.environ.get("JUPYTER_PASSWORD", "")
+    print(passwd(password))
+except Exception as e:
+    print(f"HASH_ERROR: {e}", file=sys.stderr)
+    sys.exit(3)
+PY
+)
+    PYTHON_EXIT_CODE=$?
+    if [ $PYTHON_EXIT_CODE -ne 0 ]; then
+        echo "❌ Failed to hash password! Python error output:"
+        echo "${HASHED_PASSWORD_AND_ERROR}"
+        exit 1
+    fi
+    HASHED_PASSWORD="${HASHED_PASSWORD_AND_ERROR}"
+    # Remove plaintext password from environment
+    unset JUPYTER_PASSWORD
+    nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
+        --ServerApp.password="${HASHED_PASSWORD}" \
+        --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
+    echo "✅ Jupyter Lab started in background (password protected)"
+  else
+    # Start without auth (no password provided)
+    echo "⚠️  Starting Jupyter Lab WITHOUT authentication"
+    nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
+        --ServerApp.token='' --ServerApp.password='' \
+        --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
+    echo "✅ Jupyter Lab started in background (no auth required)"
+  fi
 else
   echo "ℹ️  Jupyter disabled (set JUPYTER_ENABLE=true to start)"
 fi
@@ -397,22 +436,32 @@ export TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1
 # Download models if requested
 echo "🔍 Checking model download status..."
 echo "🔧 Running enhanced model download script..."
+
+# Create log file first to avoid "unary operator expected" errors
+touch /workspace/model_download.log
+
 /usr/local/bin/download_comfyui_models.sh
 
-# Wait for the log file to be created by the background process
-echo "⏳ Waiting for model download log to be created..."
-WAIT_COUNT=0
-while [ ! -f "/workspace/model_download.log" ] && [ $WAIT_COUNT -lt 10 ]; do
-    sleep 1
-    WAIT_COUNT=$((WAIT_COUNT + 1))
-done
+# Wait for the background model downloader only when enabled
+if [ "${DOWNLOAD_MODELS:-false}" = "true" ]; then
+    echo "⏳ Waiting for model download to start writing logs..."
+    MAX_WAIT_SECONDS=${DOWNLOAD_LOG_WAIT_SECS:-10}
+    WAIT_COUNT=0
+    while [ ! -s "/workspace/model_download.log" ] && [ "$WAIT_COUNT" -lt "$MAX_WAIT_SECONDS" ]; do
+        sleep 1
+        WAIT_COUNT=$((WAIT_COUNT + 1))
+    done
 
-# Show the beginning of the model download log if it exists
-if [ -f "/workspace/model_download.log" ]; then
-    echo "📋 Recent model download log entries:"
-    tail -20 /workspace/model_download.log || true
+    # Show the beginning of the model download log if it has content
+    if [ -s "/workspace/model_download.log" ]; then
+        echo "📋 Recent model download log entries:"
+        tail -20 /workspace/model_download.log || true
+    else
+        echo "⚠️  Model download log is still empty after ${MAX_WAIT_SECONDS} seconds."
+        echo "   This can occur if downloads are slow to start."
+    fi
 else
-    echo "⚠️  No model download log found after 10 seconds (background process may not have started yet)"
+    echo "ℹ️  DOWNLOAD_MODELS is not 'true'; skipping log wait."
 fi
 
 cd /workspace/ComfyUI

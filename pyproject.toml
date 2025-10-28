@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "runpod-comfyui-cloud"
+version = "2.0.0"
+description = "Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPUs on RunPod cloud platform"
+authors = ["Sebastian Hein <contact@ecomtree.com>"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/EcomTree/runpod-comfyui-cloud"
+repository = "https://github.com/EcomTree/runpod-comfyui-cloud"
+keywords = ["comfyui", "runpod", "docker", "nvidia", "h200", "rtx5090"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = ">=2.32.4"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+black = "^23.7.0"
+flake8 = "^6.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+

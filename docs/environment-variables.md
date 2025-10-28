@@ -5,7 +5,12 @@
 ### Enable Jupyter Lab
 - **Variable**: `JUPYTER_ENABLE`
 - **Value**: `true`
-- **Description**: Launches Jupyter Lab on port 8888 without authentication.
+- **Description**: Launches Jupyter Lab on port 8888.
+
+### Jupyter Password (Optional)
+- **Variable**: `JUPYTER_PASSWORD`
+- **Value**: `<your-password>`
+- **Description**: Sets a password for Jupyter Lab. If not provided, Jupyter will start without authentication (use only in trusted environments).
 
 ### Enable Model Downloads
 - **Variable**: `DOWNLOAD_MODELS`

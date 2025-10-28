@@ -32,6 +32,8 @@ env/
 venv/
 .env
 .venv/
+.venv
+*.egg-info/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -93,3 +95,8 @@ docker-build.log
 link_verification_results.json
 downloaded_models_summary.json
 model_download.log
+
+# Python virtual environments
+*.egg-info/
+dist/
+build/
