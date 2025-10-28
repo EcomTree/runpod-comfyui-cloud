@@ -391,16 +391,29 @@ if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
     # Start with password authentication
     echo "🔐 Using password authentication"
     # Hash the password without exposing it via command-line args
-    HASHED_PASSWORD=$(python3 - <<'PY'
+    HASHED_PASSWORD_AND_ERROR=$(python3 - <<'PY'
 import os
-from jupyter_server.auth import passwd
-print(passwd(os.environ.get("JUPYTER_PASSWORD", "")))
+import sys
+try:
+    from jupyter_server.auth import passwd
+except ImportError as e:
+    print(f"IMPORT_ERROR: {e}", file=sys.stderr)
+    sys.exit(2)
+try:
+    password = os.environ.get("JUPYTER_PASSWORD", "")
+    print(passwd(password))
+except Exception as e:
+    print(f"HASH_ERROR: {e}", file=sys.stderr)
+    sys.exit(3)
 PY
 )
-    if [ -z "${HASHED_PASSWORD}" ]; then
-        echo "❌ Failed to hash password!"
+    PYTHON_EXIT_CODE=$?
+    if [ $PYTHON_EXIT_CODE -ne 0 ]; then
+        echo "❌ Failed to hash password! Python error output:"
+        echo "${HASHED_PASSWORD_AND_ERROR}"
         exit 1
     fi
+    HASHED_PASSWORD="${HASHED_PASSWORD_AND_ERROR}"
     # Remove plaintext password from environment
     unset JUPYTER_PASSWORD
     nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
