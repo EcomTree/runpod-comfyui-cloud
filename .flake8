@@ -1,6 +1,6 @@
 [flake8]
 max-line-length = 100
-extend-ignore = E203, E266, E501, W503
+extend-ignore = E203, E266, E501, W503, E702
 exclude =
     .git,
     __pycache__,
@@ -11,4 +11,7 @@ exclude =
     .eggs,
     *.egg-info,
     ComfyUI
+per-file-ignores =
+    __init__.py:F401
+max-complexity = 10
 

@@ -9,46 +9,46 @@ import json
 import requests
 import time
 import sys
-import shutil
 from pathlib import Path
 from urllib.parse import urlparse
-import subprocess
 
 # Constants
 PROGRESS_REPORT_INTERVAL_MB = 10  # Report progress every 10 MB
 RETRY_BASE_DELAY_SECONDS = 5  # Base delay for exponential backoff
 MIB_TO_BYTES = 1024 * 1024  # Bytes in one mebibyte (binary megabyte)
 KB_TO_BYTES = 1024  # Bytes in one kilobyte
-MIN_VALID_FILE_SIZE_KB = 10  # Minimum file size in KB to consider a download complete (10KB for small LoRAs)
+MIN_VALID_FILE_SIZE_KB = (
+    10  # Minimum file size in KB to consider a download complete (10KB for small LoRAs)
+)
 
 # Model classification mapping: ordered from most specific to most general
 MODEL_CLASSIFICATION_MAPPING = [
-    ('unet', ['flux', 'sd3', 'auraflow', 'hunyuan', 'kolors', 'lumina']),
-    ('vae', ['vae', 'kl-f8-anime']),
-    ('clip_vision', ['clip_vision', 'image_encoder']),
-    ('clip', ['clip', 'open_clip']),
-    ('t5', ['t5', 'umt5']),
-    ('controlnet', ['controlnet', 'control_', 'canny', 'depth', 'openpose', 'scribble']),
-    ('loras', ['lora', '.lora']),
-    ('upscale_models', ['esrgan', 'realesrgan', 'swinir', '4x', '2x', 'upscale']),
-    ('animatediff_models', ['animatediff', 'mm_', 'motion']),
-    ('ipadapter', ['ip-adapter', 'ip_adapter']),
-    ('text_encoders', ['text_encoder']),
-    ('checkpoints', ['.ckpt', '.safetensors']),
+    ("unet", ["flux", "sd3", "auraflow", "hunyuan", "kolors", "lumina"]),
+    ("vae", ["vae", "kl-f8-anime"]),
+    ("clip_vision", ["clip_vision", "image_encoder"]),
+    ("clip", ["clip", "open_clip"]),
+    ("t5", ["t5", "umt5"]),
+    ("controlnet", ["controlnet", "control_", "canny", "depth", "openpose", "scribble"]),
+    ("loras", ["lora", ".lora"]),
+    ("upscale_models", ["esrgan", "realesrgan", "swinir", "4x", "2x", "upscale"]),
+    ("animatediff_models", ["animatediff", "mm_", "motion"]),
+    ("ipadapter", ["ip-adapter", "ip_adapter"]),
+    ("text_encoders", ["text_encoder"]),
+    ("checkpoints", [".ckpt", ".safetensors"]),
 ]
+
 
 def setup_hf_session():
     """Set up a requests.Session with Hugging Face token if available."""
     session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'ComfyUI-Model-Downloader/1.0'
-    })
+    session.headers.update({"User-Agent": "ComfyUI-Model-Downloader/1.0"})
     hf_token = os.getenv("HF_TOKEN")
     if hf_token:
-        session.headers['Authorization'] = f'Bearer {hf_token.strip()}'
+        session.headers["Authorization"] = f"Bearer {hf_token.strip()}"
     else:
         print("⚠️  No HF_TOKEN set. Protected Hugging Face downloads may fail.")
     return session
+
 
 SESSION = setup_hf_session()
 
@@ -59,6 +59,7 @@ SESSION = setup_hf_session()
 # These indicators are used to determine if the script is running inside a Codex/RunPod cloud pod,
 # which may require specific setup steps and optimizations. If neither is present, the script assumes
 # it is running in a non-Codex environment and may adjust its behavior accordingly.
+
 
 class ComfyUIModelDownloader:
     def __init__(self, base_dir="/workspace", verification_file="link_verification_results.json"):
@@ -85,7 +86,7 @@ class ComfyUIModelDownloader:
             "diffusion_models",
             "animatediff_models",
             "text_encoders",
-            "ipadapter"
+            "ipadapter",
         ]
 
         for dir_name in directories:
@@ -105,7 +106,7 @@ class ComfyUIModelDownloader:
             alternative_paths = [
                 "/workspace/link_verification_results.json",
                 "link_verification_results.json",
-                "./link_verification_results.json"
+                "./link_verification_results.json",
             ]
 
             print("🔍 DEBUG: Trying alternative paths...")
@@ -117,13 +118,20 @@ class ComfyUIModelDownloader:
                     break
             else:
                 print("❌ No verification file found in any location!")
-                print("🔍 Searching for JSON files in likely /workspace subdirectories (this may take a moment)...")
+                print(
+                    "🔍 Searching for JSON files in likely /workspace subdirectories (this may take a moment)..."
+                )
                 try:
                     # Limit search to specific subdirectories and reduce maxdepth to avoid issues in large filesystems
-                    search_dirs = ['/workspace', '/workspace/models', '/workspace/data', '/workspace/ComfyUI']
+                    search_dirs = [
+                        "/workspace",
+                        "/workspace/models",
+                        "/workspace/data",
+                        "/workspace/ComfyUI",
+                    ]
                     max_list = int(os.getenv("FIND_MAX_RESULTS", "100"))
                     found_files = []
-                    
+
                     # Iterate through each search directory
                     for d in search_dirs:
                         if not os.path.isdir(d):
@@ -133,17 +141,17 @@ class ComfyUIModelDownloader:
                             for root, dirs, files in os.walk(d):
                                 # Calculate depth relative to the search directory
                                 rel_path = os.path.relpath(root, d)
-                                depth = 0 if rel_path == '.' else rel_path.count(os.sep) + 1
+                                depth = 0 if rel_path == "." else rel_path.count(os.sep) + 1
                                 if depth > 2:
                                     # Prevent descending further
                                     dirs[:] = []
                                     continue
                                 for file in files:
-                                    if file.endswith('.json'):
+                                    if file.endswith(".json"):
                                         found_files.append(os.path.join(root, file))
                         except (OSError, PermissionError) as e:
                             print(f"⚠️  Error searching in {d} ({type(e).__name__}): {e}")
-                    
+
                     if found_files:
                         for f in found_files[:max_list]:
                             print(f"  {f}")
@@ -160,9 +168,9 @@ class ComfyUIModelDownloader:
 
         try:
             print(f"📖 Loading verification file: {self.verification_file}")
-            with open(self.verification_file, 'r', encoding='utf-8') as f:
+            with open(self.verification_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                valid_links = data.get('valid_links', [])
+                valid_links = data.get("valid_links", [])
                 print(f"✅ Loaded {len(valid_links)} valid links")
 
                 if not valid_links:
@@ -186,14 +194,14 @@ class ComfyUIModelDownloader:
     def determine_target_directory(self, url):
         """Determines the target directory based on URL and filename."""
         parsed_url = urlparse(url)
-        filename = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
+        filename = parsed_url.path.split("/")[-1] if parsed_url.path else "unknown"
         filename = filename.lower()
 
         # Use global classification mapping
         for directory, patterns in MODEL_CLASSIFICATION_MAPPING:
             # Check if filename contains patterns or has specific extensions
             for pattern in patterns:
-                if pattern.startswith('.'):
+                if pattern.startswith("."):
                     if filename.endswith(pattern):
                         return directory
                 elif pattern in filename:
@@ -210,12 +218,12 @@ class ComfyUIModelDownloader:
         for attempt in range(retry_count):
             # Reset progress tracking for each attempt
             last_reported = 0
-            
+
             try:
                 # Clean filename from URL (remove query parameters)
-                clean_url = url.split('?')[0]
+                clean_url = url.split("?")[0]
                 parsed_url = urlparse(clean_url)
-                filename = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
+                filename = parsed_url.path.split("/")[-1] if parsed_url.path else "unknown"
                 print(f"⬇️  Downloading: {filename} (Attempt {attempt + 1}/{retry_count})")
 
                 # Stream download for large files
@@ -224,11 +232,11 @@ class ComfyUIModelDownloader:
 
                     # Retrieve file size for progress output
                     try:
-                        total_size = int(response.headers.get('content-length', 0))
+                        total_size = int(response.headers.get("content-length", 0))
                     except (TypeError, ValueError):
                         total_size = 0
 
-                    with open(target_path, 'wb') as f:
+                    with open(target_path, "wb") as f:
                         downloaded = 0
                         for chunk in response.iter_content(chunk_size=8192):
                             if chunk:
@@ -238,15 +246,22 @@ class ComfyUIModelDownloader:
                                 # Progress reporting
                                 if total_size > 0:
                                     report_threshold = PROGRESS_REPORT_INTERVAL_MB * MIB_TO_BYTES
-                                    if downloaded - last_reported >= report_threshold or downloaded == total_size:
+                                    if (
+                                        downloaded - last_reported >= report_threshold
+                                        or downloaded == total_size
+                                    ):
                                         progress = (downloaded / total_size) * 100
-                                        print(f"   📈 {progress:.1f}% ({downloaded / MIB_TO_BYTES:.1f} MB)")
+                                        print(
+                                            f"   📈 {progress:.1f}% ({downloaded / MIB_TO_BYTES:.1f} MB)"
+                                        )
                                         last_reported = downloaded
                                 else:
                                     # For files without content-length header, throttle logging
                                     report_threshold = PROGRESS_REPORT_INTERVAL_MB * MIB_TO_BYTES
                                     if downloaded - last_reported >= report_threshold:
-                                        print(f"   📥 Downloaded: {downloaded / MIB_TO_BYTES:.1f} MB")
+                                        print(
+                                            f"   📥 Downloaded: {downloaded / MIB_TO_BYTES:.1f} MB"
+                                        )
                                         last_reported = downloaded
 
                 print(f"✅ Successfully downloaded: {target_path}")
@@ -282,10 +297,10 @@ class ComfyUIModelDownloader:
 
         def download_single_model(url):
             # Extract clean filename from URL
-            clean_url = url.split('?')[0]
+            clean_url = url.split("?")[0]
             parsed_url = urlparse(clean_url)
-            filename = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
-            
+            filename = parsed_url.path.split("/")[-1] if parsed_url.path else "unknown"
+
             target_dir = self.determine_target_directory(url)
             target_path = self.models_dir / target_dir / filename
 
@@ -296,10 +311,14 @@ class ComfyUIModelDownloader:
                 # but allows small models like LoRAs (which can be <1MB)
                 min_valid_size = MIN_VALID_FILE_SIZE_KB * KB_TO_BYTES
                 if file_size > min_valid_size:
-                    print(f"⏭️  Skipping (already exists): {target_path.name} ({file_size / MIB_TO_BYTES:.1f} MB)")
+                    print(
+                        f"⏭️  Skipping (already exists): {target_path.name} ({file_size / MIB_TO_BYTES:.1f} MB)"
+                    )
                     return True
                 else:
-                    print(f"⚠️  Incomplete file detected ({file_size / KB_TO_BYTES:.1f} KB), re-downloading: {target_path.name}")
+                    print(
+                        f"⚠️  Incomplete file detected ({file_size / KB_TO_BYTES:.1f} KB), re-downloading: {target_path.name}"
+                    )
                     target_path.unlink()  # Delete incomplete file
 
             return self.download_file(url, target_path)
@@ -307,9 +326,9 @@ class ComfyUIModelDownloader:
         # Execute downloads sequentially (more stable for large files)
         for i, url in enumerate(valid_links, 1):
             # Extract filename from URL properly (handle query parameters)
-            clean_url = url.split('?')[0]
+            clean_url = url.split("?")[0]
             parsed_url = urlparse(clean_url)
-            filename = parsed_url.path.split('/')[-1] if parsed_url.path else 'unknown'
+            filename = parsed_url.path.split("/")[-1] if parsed_url.path else "unknown"
             print(f"\n📦 [{i}/{len(valid_links)}] Processing: {filename}")
 
             if download_single_model(url):
@@ -338,9 +357,9 @@ class ComfyUIModelDownloader:
         model_info = {}
         for root, dirs, files in os.walk(self.models_dir):
             for file in files:
-                if file.endswith(('.safetensors', '.ckpt', '.pth', '.bin', '.pt')):
+                if file.endswith((".safetensors", ".ckpt", ".pth", ".bin", ".pt")):
                     rel_path = os.path.relpath(root, self.models_dir)
-                    category = rel_path if rel_path != '.' else 'root'
+                    category = rel_path if rel_path != "." else "root"
 
                     if category not in model_info:
                         model_info[category] = []
@@ -348,31 +367,43 @@ class ComfyUIModelDownloader:
                     file_path = Path(root) / file
                     size_mb = file_path.stat().st_size / MIB_TO_BYTES
 
-                    model_info[category].append({
-                        'filename': file,
-                        'size_mb': round(size_mb, 2),
-                        'path': str(file_path.relative_to(self.base_dir))
-                    })
+                    model_info[category].append(
+                        {
+                            "filename": file,
+                            "size_mb": round(size_mb, 2),
+                            "path": str(file_path.relative_to(self.base_dir)),
+                        }
+                    )
 
         # Sort by category and filename
         for category in model_info:
-            model_info[category].sort(key=lambda x: x['filename'])
+            model_info[category].sort(key=lambda x: x["filename"])
 
         # Get repository URL from environment or use default
-        repository_url = os.getenv('REPOSITORY_URL', 'https://github.com/EcomTree/runpod-comfyui-cloud')
-        
-        with open(summary_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'total_files': sum(len(files) for files in model_info.values()),
-                'total_size_mb': round(sum(sum(f['size_mb'] for f in files) for files in model_info.values()), 2),
-                'download_date': time.time(),
-                'repository': repository_url,
-                'models': model_info
-            }, f, indent=2, ensure_ascii=False)
+        repository_url = os.getenv(
+            "REPOSITORY_URL", "https://github.com/EcomTree/runpod-comfyui-cloud"
+        )
+
+        with open(summary_file, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "total_files": sum(len(files) for files in model_info.values()),
+                    "total_size_mb": round(
+                        sum(sum(f["size_mb"] for f in files) for files in model_info.values()), 2
+                    ),
+                    "download_date": time.time(),
+                    "repository": repository_url,
+                    "models": model_info,
+                },
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
 
         print(f"📋 Download summary created: {summary_file}")
 
         return summary_file
+
 
 def main():
     """Main function."""
@@ -413,6 +444,7 @@ def main():
 
     print("\n✅ Download process completed!")
     print(f"📄 See {summary_file} for details.")
+
 
 if __name__ == "__main__":
     main()

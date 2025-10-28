@@ -1,6 +1,8 @@
 #!/bin/bash
 # RunPod deployment script for ComfyUI Cloud Image
 # Creates and manages RunPod pods with optimal configuration
+# DEPRECATED: This script uses outdated image names
+# Use RunPod web console or update IMAGE_NAME variable
 
 set -e
 
@@ -8,7 +10,8 @@ echo "🚀 RunPod ComfyUI Cloud Deployment Script"
 echo "========================================"
 
 # Default configuration
-IMAGE_NAME="sebastianhein/comfyui-h200:no-auth"
+# NOTE: Update this to the correct image name
+IMAGE_NAME="ecomtree/comfyui-cloud:latest"
 POD_NAME="comfyui-$(date +%s)"
 GPU_TYPE="NVIDIA GeForce RTX 5090"
 VOLUME_SIZE=100

@@ -1,4 +1,10 @@
 #!/bin/bash
+# FLUX Model Download Script
+# Downloads FLUX.1-dev models for ComfyUI
+# DEPRECATED: Use download_models.py for comprehensive model downloads
+# This script is kept for legacy support and specific FLUX model needs
+
+set -e
 
 # --- START COPY & PASTE BLOCK ---
 

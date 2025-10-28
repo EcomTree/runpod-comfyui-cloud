@@ -1,6 +1,8 @@
 """
-Setup script for runpod-comfyui-cloud
+Setup script for runpod-comfyui-cloud.
+
 This is a minimal setup.py for compatibility with various tools.
+The project uses Poetry for dependency management (see pyproject.toml).
 """
 
 from setuptools import setup, find_packages
@@ -18,7 +20,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/EcomTree/runpod-comfyui-cloud",
-    packages=find_packages(exclude=['tests', 'tests.*']),
+    packages=find_packages(exclude=["tests", "tests.*"]),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
