@@ -15,7 +15,7 @@ Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPU
 - **🛡️ Crash-loop protection** with fallback mechanisms
 - **⚡ Fast startup** under 3 minutes
 - **💰 Cost optimized** RTX 5090 support ($0.69/hr)
-- **🔓 No authentication** required for Jupyter Lab
+- **🔐 Optional Jupyter Lab password protection** for enhanced security
 
 ## 🎯 Supported Hardware
 
@@ -279,7 +279,7 @@ docker pull ecomtree/comfyui-cloud:latest
 
 - ComfyUI v0.3.57
 - Automatic model download support
-- No Jupyter authentication
+- Optional Jupyter Lab password protection
 - H200 & RTX 5090 optimizations
 
 ## 🤝 Contributing

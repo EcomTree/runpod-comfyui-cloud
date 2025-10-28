@@ -88,6 +88,8 @@ RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
 
 # Environment variables are already available at runtime
 # No need to set them explicitly here - they come from docker run -e flags
+# The following pattern ensures we pick up the latest values from the environment at execution time,
+# rather than capturing them at script creation time.
 echo "🔍 DEBUG: Environment variables (read at runtime):"
 DOWNLOAD_MODELS="${DOWNLOAD_MODELS:-false}"
 HF_TOKEN="${HF_TOKEN:-}"
@@ -388,17 +390,21 @@ if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
   if [ -n "${JUPYTER_PASSWORD:-}" ]; then
     # Start with password authentication
     echo "🔐 Using password authentication"
+    # Hash the password using jupyter_server.auth module
+    HASHED_PASSWORD=$(python3 -c "from jupyter_server.auth import passwd; import sys; print(passwd(sys.argv[1]))" "${JUPYTER_PASSWORD}")
+    if [ -z "${HASHED_PASSWORD}" ]; then
+        echo "❌ Failed to hash password!"
+        exit 1
+    fi
     nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
-        --ServerApp.password="${JUPYTER_PASSWORD}" \
-        --NotebookApp.password="${JUPYTER_PASSWORD}" \
+        --ServerApp.password="${HASHED_PASSWORD}" \
         --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
     echo "✅ Jupyter Lab started in background (password protected)"
   else
     # Start without auth (no password provided)
     echo "⚠️  Starting Jupyter Lab WITHOUT authentication"
-    JUPYTER_ALLOW_NO_AUTH=true nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
+    env JUPYTER_ALLOW_NO_AUTH=true nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
         --ServerApp.token='' --ServerApp.password='' \
-        --NotebookApp.token='' --NotebookApp.password='' \
         --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
     echo "✅ Jupyter Lab started in background (no auth required)"
   fi
@@ -419,20 +425,21 @@ touch /workspace/model_download.log
 
 /usr/local/bin/download_comfyui_models.sh
 
-# Wait for the log file to be created by the background process
-echo "⏳ Waiting for model download log to be created..."
+# Wait for the background model downloader to write log content
+echo "⏳ Waiting for model download to start writing logs..."
 WAIT_COUNT=0
-while [ ! -f "/workspace/model_download.log" ] && [ $WAIT_COUNT -lt 10 ]; do
+while [ ! -s "/workspace/model_download.log" ] && [ $WAIT_COUNT -lt 10 ]; do
     sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
 done
 
-# Show the beginning of the model download log if it exists
-if [ -f "/workspace/model_download.log" ]; then
+# Show the beginning of the model download log if it has content
+if [ -s "/workspace/model_download.log" ]; then
     echo "📋 Recent model download log entries:"
     tail -20 /workspace/model_download.log || true
 else
-    echo "⚠️  No model download log found after 10 seconds (background process may not have started yet)"
+    echo "⚠️  Model download log is still empty after 10 seconds"
+    echo "   This is normal if DOWNLOAD_MODELS is not set to 'true'"
 fi
 
 cd /workspace/ComfyUI
