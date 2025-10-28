@@ -83,7 +83,7 @@ RUN python3 -m venv /opt/runpod/model_dl_venv && \
     /opt/runpod/model_dl_venv/bin/pip install --no-cache-dir "requests>=2.32.4"
 
 # Provide shared utility for flag normalization to avoid duplication
-RUN <<'EOF' cat > /usr/local/bin/normalize_flag.sh
+RUN cat > /usr/local/bin/normalize_flag.sh <<'EOF'
 #!/bin/bash
 normalize_flag() {
     local raw="$1"
@@ -104,6 +104,15 @@ normalize_flag() {
             ;;
     esac
 }
+
+# Echo combined normalized value and exit status as VALUE:STATUS
+normalize_with_status() {
+    local raw="$1"
+    local value
+    value="$(normalize_flag "$raw")"
+    local status=$?
+    printf "%s:%s" "$value" "$status"
+}
 EOF
 RUN chmod +x /usr/local/bin/normalize_flag.sh
 
@@ -117,7 +126,7 @@ source /usr/local/bin/normalize_flag.sh
 echo "🔍 DEBUG: Environment variables (read at runtime):"
 HF_TOKEN="${HF_TOKEN:-}"
 DOWNLOAD_MODELS_RAW="${DOWNLOAD_MODELS:-}"
-NS_OUT="$(normalize_flag "$DOWNLOAD_MODELS_RAW"; printf ':%s' "$?")"
+NS_OUT="$(normalize_with_status "$DOWNLOAD_MODELS_RAW")"
 DOWNLOAD_MODELS_VALUE="${NS_OUT%:*}"
 DOWNLOAD_MODELS_STATUS="${NS_OUT##*:}"
 DOWNLOAD_MODELS_DISPLAY="$DOWNLOAD_MODELS_RAW"
@@ -128,7 +137,6 @@ if [ "$DOWNLOAD_MODELS_STATUS" -ne 0 ]; then
     echo "⚠️  Unrecognized value for DOWNLOAD_MODELS ('${DOWNLOAD_MODELS_DISPLAY}'). Defaulting to disabled."
 fi
 echo "   DOWNLOAD_MODELS raw='${DOWNLOAD_MODELS_DISPLAY}' normalized='${DOWNLOAD_MODELS_VALUE}'"
-DOWNLOAD_MODELS="${DOWNLOAD_MODELS_VALUE}"
 if [ -n "$HF_TOKEN" ]; then
     echo "   HF_TOKEN='YES'"
 else
@@ -264,7 +272,7 @@ if [ "${DOWNLOAD_MODELS_VALUE:-false}" = "true" ]; then
     echo "   Note: This is the PID of the wrapper process, not the actual Python script."
     echo "   Use 'pgrep -f download_models.py' to find the actual process PID."
 else
-    echo "ℹ️  Model download skipped (raw='${DOWNLOAD_MODELS_DISPLAY}', normalized='${DOWNLOAD_MODELS}')."
+    echo "ℹ️  Model download skipped (raw='${DOWNLOAD_MODELS_DISPLAY}', normalized='${DOWNLOAD_MODELS_VALUE}')."
 fi
 EOF
 
@@ -419,7 +427,7 @@ fi
 # Normalize runtime feature flags
 JUPYTER_ENABLE_RAW="${JUPYTER_ENABLE:-}"
 set +e
-NS_OUT="$(normalize_flag "$JUPYTER_ENABLE_RAW"; printf ':%s' "$?")"
+NS_OUT="$(normalize_with_status "$JUPYTER_ENABLE_RAW")"
 set -e
 JUPYTER_ENABLE_VALUE="${NS_OUT%:*}"
 JUPYTER_ENABLE_STATUS="${NS_OUT##*:}"
@@ -431,11 +439,10 @@ if [ "$JUPYTER_ENABLE_STATUS" -ne 0 ]; then
     echo "⚠️  Unrecognized value for JUPYTER_ENABLE ('${JUPYTER_ENABLE_DISPLAY}'). Defaulting to disabled."
 fi
 echo "🔍 DEBUG: JUPYTER_ENABLE raw='${JUPYTER_ENABLE_DISPLAY}' normalized='${JUPYTER_ENABLE_VALUE}'"
-export JUPYTER_ENABLE="${JUPYTER_ENABLE_VALUE}"
 
 DOWNLOAD_MODELS_RAW="${DOWNLOAD_MODELS:-}"
 set +e
-NS_OUT="$(normalize_flag "$DOWNLOAD_MODELS_RAW"; printf ':%s' "$?")"
+NS_OUT="$(normalize_with_status "$DOWNLOAD_MODELS_RAW")"
 set -e
 DOWNLOAD_MODELS_VALUE="${NS_OUT%:*}"
 DOWNLOAD_MODELS_STATUS="${NS_OUT##*:}"
@@ -447,7 +454,6 @@ if [ "$DOWNLOAD_MODELS_STATUS" -ne 0 ]; then
     echo "⚠️  Unrecognized value for DOWNLOAD_MODELS ('${DOWNLOAD_MODELS_DISPLAY}'). Defaulting to disabled."
 fi
 echo "🔍 DEBUG: DOWNLOAD_MODELS raw='${DOWNLOAD_MODELS_DISPLAY}' normalized='${DOWNLOAD_MODELS_VALUE}'"
-export DOWNLOAD_MODELS="${DOWNLOAD_MODELS_VALUE}"
 
 # Start Jupyter Lab in the background (port 8888)
 if [ "${JUPYTER_ENABLE_VALUE:-false}" = "true" ]; then
