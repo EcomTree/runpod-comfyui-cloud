@@ -4,14 +4,16 @@ Link Verification Script for ComfyUI Models Library
 Verifies all Hugging Face links for accessibility and correctness.
 """
 
-import os
-import requests
-import re
 import json
+import os
+import re
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-import time
+from urllib.parse import urlsplit, urlunsplit
+
+import requests
 
 
 def validate_hf_token():
@@ -69,8 +71,9 @@ def extract_huggingface_links(content):
 def check_link(link, timeout=10):
     """Checks a single link."""
     try:
-        # Remove query parameters for a clean URL
-        clean_link = link.split("?")[0] if "?" in link else link
+        # Remove query parameters for a clean URL while preserving path normalization
+        parsed = urlsplit(link)
+        clean_link = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
 
         # HEAD request for faster verification
         response = SESSION.head(clean_link, timeout=timeout, allow_redirects=True)
