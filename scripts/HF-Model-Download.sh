@@ -23,6 +23,11 @@ mkdir -p ./models/vae
 
 # 4. DOWNLOADS (FULL QUALITY / HEAVY VARIANTS)
 
+# Check if HF_TOKEN is set and non-empty
+if [ -z "$HF_TOKEN" ]; then
+    echo "ERROR: HF_TOKEN is not set. Please provide your Hugging Face API token in the script before downloading gated models."
+    exit 1
+fi
 echo "--- [1/4] Download UNET (FLUX.1-dev) - Full Precision (23.8 GB) ---"
 # This model is gated and requires the API token
 wget --header="Authorization: Bearer $HF_TOKEN" https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.sft -O ./models/unet/flux1-dev.sft
