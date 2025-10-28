@@ -391,7 +391,7 @@ if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
     # Start with password authentication
     echo "🔐 Using password authentication"
     # Hash the password using jupyter_server.auth module
-    HASHED_PASSWORD=$(echo "${JUPYTER_PASSWORD}" | python3 -c "from jupyter_server.auth import passwd; import sys; print(passwd(sys.stdin.read().strip()))")
+    HASHED_PASSWORD=$(python3 -c "from jupyter_server.auth import passwd; import sys; print(passwd(sys.stdin.read().strip()))" <<< "${JUPYTER_PASSWORD}")
     if [ -z "${HASHED_PASSWORD}" ]; then
         echo "❌ Failed to hash password!"
         exit 1
