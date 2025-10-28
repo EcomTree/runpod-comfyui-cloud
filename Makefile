@@ -19,27 +19,34 @@ install:
 test:
 	@echo "Running tests..."
 	@if command -v pytest >/dev/null 2>&1; then \
-		pytest tests/ -v || echo "No pytest tests found"; \
+		pytest tests/ -v; \
 	else \
 		echo "pytest not installed, skipping tests"; \
+		exit 1; \
 	fi
 	@echo "Running link verification..."
-	@python3 scripts/verify_links.py || echo "Link verification skipped"
+	@if [ -f scripts/verify_links.py ]; then \
+		python3 scripts/verify_links.py; \
+	else \
+		echo "Link verification script not found, skipping"; \
+	fi
 
 lint:
 	@echo "Running linters..."
 	@if command -v flake8 >/dev/null 2>&1; then \
-		flake8 scripts/ || echo "No flake8 issues found"; \
+		flake8 scripts/; \
 	else \
 		echo "flake8 not installed, skipping lint"; \
+		exit 1; \
 	fi
 
 format:
 	@echo "Formatting code..."
 	@if command -v black >/dev/null 2>&1; then \
-		black scripts/ || echo "black not installed"; \
+		black scripts/; \
 	else \
 		echo "black not installed, skipping format"; \
+		exit 1; \
 	fi
 
 verify:

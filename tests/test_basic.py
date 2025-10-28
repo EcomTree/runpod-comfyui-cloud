@@ -10,13 +10,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 
 def test_imports():
-    """Test that basic imports work"""
-    try:
-        import requests
-        assert requests is not None
-    except ImportError:
-        # If requests is not installed, that's okay for basic test
-        pass
+    """Test that basic imports work and required deps are present"""
+    import requests
+    assert hasattr(requests, "get")
 
 
 def test_project_structure():

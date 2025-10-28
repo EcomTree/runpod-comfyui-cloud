@@ -390,12 +390,19 @@ if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
   if [ -n "${JUPYTER_PASSWORD:-}" ]; then
     # Start with password authentication
     echo "🔐 Using password authentication"
-    # Hash the password using jupyter_server.auth module
-    HASHED_PASSWORD=$(python3 -c "from jupyter_server.auth import passwd; import sys; print(passwd(sys.stdin.read().strip()))" <<< "${JUPYTER_PASSWORD}")
+    # Hash the password without exposing it via command-line args
+    HASHED_PASSWORD=$(python3 - <<'PY'
+import os
+from jupyter_server.auth import passwd
+print(passwd(os.environ.get("JUPYTER_PASSWORD", "")))
+PY
+)
     if [ -z "${HASHED_PASSWORD}" ]; then
         echo "❌ Failed to hash password!"
         exit 1
     fi
+    # Remove plaintext password from environment
+    unset JUPYTER_PASSWORD
     nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
         --ServerApp.password="${HASHED_PASSWORD}" \
         --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
@@ -427,8 +434,9 @@ touch /workspace/model_download.log
 
 # Wait for the background model downloader to write log content
 echo "⏳ Waiting for model download to start writing logs..."
+MAX_WAIT_SECONDS=${DOWNLOAD_LOG_WAIT_SECS:-10}
 WAIT_COUNT=0
-while [ ! -s "/workspace/model_download.log" ] && [ "$WAIT_COUNT" -lt 10 ]; do
+while [ ! -s "/workspace/model_download.log" ] && [ "$WAIT_COUNT" -lt "$MAX_WAIT_SECONDS" ]; do
     sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
 done
@@ -438,7 +446,7 @@ if [ -s "/workspace/model_download.log" ]; then
     echo "📋 Recent model download log entries:"
     tail -20 /workspace/model_download.log || true
 else
-    echo "⚠️  Model download log is still empty after 10 seconds."
+    echo "⚠️  Model download log is still empty after ${MAX_WAIT_SECONDS} seconds."
     echo "   This is expected if DOWNLOAD_MODELS is not set to 'true' or if model downloads have not started yet."
 fi
 
