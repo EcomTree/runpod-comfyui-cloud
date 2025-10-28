@@ -86,10 +86,7 @@ RUN python3 -m venv /opt/runpod/model_dl_venv && \
 RUN <<'EOF' cat > /usr/local/bin/download_comfyui_models.sh
 #!/bin/bash
 
-# Environment variables are already available at runtime
-# No need to set them explicitly here - they come from docker run -e flags
-# The following pattern ensures we pick up the latest values from the environment at execution time,
-# rather than capturing them at script creation time.
+# Read environment variables at runtime to capture values from docker run -e flags.
 echo "🔍 DEBUG: Environment variables (read at runtime):"
 DOWNLOAD_MODELS="${DOWNLOAD_MODELS:-false}"
 HF_TOKEN="${HF_TOKEN:-}"
