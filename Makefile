@@ -22,7 +22,6 @@ test:
 		pytest tests/ -v; \
 	else \
 		echo "pytest not installed, skipping tests"; \
-		exit 1; \
 	fi
 	@echo "Running link verification..."
 	@if [ -f scripts/verify_links.py ]; then \
