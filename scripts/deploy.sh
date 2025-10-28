@@ -1,6 +1,8 @@
 #!/bin/bash
 # RunPod deployment script for ComfyUI Cloud Image
 # Creates and manages RunPod pods with optimal configuration
+# LEGACY NOTICE: This helper is retained for manual deployments.
+# Review and update variables (especially IMAGE_NAME) before use or prefer the RunPod console.
 
 set -e
 
@@ -8,7 +10,7 @@ echo "🚀 RunPod ComfyUI Cloud Deployment Script"
 echo "========================================"
 
 # Default configuration
-IMAGE_NAME="sebastianhein/comfyui-h200:no-auth"
+IMAGE_NAME="ecomtree/comfyui-cloud:latest"
 POD_NAME="comfyui-$(date +%s)"
 GPU_TYPE="NVIDIA GeForce RTX 5090"
 VOLUME_SIZE=100
@@ -45,7 +47,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  -i, --image IMAGE    Docker image to deploy (default: sebastianhein/comfyui-h200:no-auth)"
+            echo "  -i, --image IMAGE    Docker image to deploy (default: ecomtree/comfyui-cloud:latest)"
             echo "  -n, --name NAME      Pod name (default: comfyui-timestamp)"
             echo "  -g, --gpu GPU        GPU type (default: RTX 5090)"
             echo "  --h200               Use H200 GPU (premium)"

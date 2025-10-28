@@ -11,4 +11,7 @@ exclude =
     .eggs,
     *.egg-info,
     ComfyUI
+per-file-ignores =
+    __init__.py:F401
+max-complexity = 10
 
