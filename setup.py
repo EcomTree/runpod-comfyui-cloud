@@ -13,7 +13,7 @@ setup(
     name="runpod-comfyui-cloud",
     version="2.0.0",
     author="Sebastian Hein",
-    author_email="sebastian@example.com",
+    author_email="contact@ecomtree.com",
     description="Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPUs",
     long_description=long_description,
     long_description_content_type="text/markdown",

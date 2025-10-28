@@ -3,8 +3,9 @@
 # --- START COPY & PASTE BLOCK ---
 
 # 1. YOUR HUGGING FACE API TOKEN
-# Replace <YOUR_HF_TOKEN_HERE> with your real HF token (Settings -> Access Tokens)
-HF_TOKEN=""
+# Prefer setting via environment: export HF_TOKEN="hf_xxxxxxxxxxxxx"
+# If not set, you can paste it here as a placeholder:
+HF_TOKEN="${HF_TOKEN:-}"
 
 # 2. VERIFY LICENSE ACCEPTANCE
 echo "----------------------------------------------------------------"
@@ -25,7 +26,8 @@ mkdir -p ./models/vae
 
 # Check if HF_TOKEN is set and non-empty
 if [ -z "$HF_TOKEN" ]; then
-    echo "ERROR: HF_TOKEN is not set. Please provide your Hugging Face API token in the script before downloading gated models."
+    echo "ERROR: HF_TOKEN is not set. Please export your Hugging Face API token (Settings -> Access Tokens)."
+    echo "Example: export HF_TOKEN=hf_xxxxxxxxxxxxx"
     exit 1
 fi
 echo "--- [1/4] Download UNET (FLUX.1-dev) - Full Precision (23.8 GB) ---"

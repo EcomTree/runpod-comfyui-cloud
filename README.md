@@ -64,7 +64,7 @@ Once deployed:
 **Access:**
 
 - **ComfyUI:** `http://<pod-ip>:8188`
-- **Jupyter Lab:** `http://<pod-ip>:8888` (no login required)
+- **Jupyter Lab:** `http://<pod-ip>:8888` (no login required by default; set `JUPYTER_PASSWORD` to enable login)
 
 ## 🔧 Project Structure
 
@@ -160,9 +160,9 @@ The image supports automatic downloading of all validated ComfyUI models at star
 ```bash
 # In RunPod Pod Settings under "Environment Variables"
 DOWNLOAD_MODELS=true
-HF_TOKEN=hf_xxxxxxxxxxxxx  # Optional: for protected Hugging Face models
-JUPYTER_ENABLE=true        # Optional: enable Jupyter Lab on port 8888
-JUPYTER_PASSWORD=mypass123 # Optional: set password for Jupyter (recommended for security)
+HF_TOKEN=hf_xxxxxxxxxxxxx      # Optional: for protected Hugging Face models
+JUPYTER_ENABLE=true            # Optional: enable Jupyter Lab on port 8888
+JUPYTER_PASSWORD=<your-secure-password> # Optional: enable Jupyter with password
 ```
 
 ### Option 2: Docker Run
@@ -172,7 +172,7 @@ docker run \
   -e DOWNLOAD_MODELS=true \
   -e HF_TOKEN=hf_xxx \
   -e JUPYTER_ENABLE=true \
-  -e JUPYTER_PASSWORD=mypass123 \
+  -e JUPYTER_PASSWORD=<your-secure-password> \
   -p 8188:8188 \
   -p 8888:8888 \
   ecomtree/comfyui-cloud:latest

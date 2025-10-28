@@ -28,7 +28,7 @@ RUN pip uninstall -y torch torchvision torchaudio xformers && \
     pip install --no-cache-dir ninja flash-attn --no-build-isolation && \
     pip install --no-cache-dir tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
 
-# Workspace einrichten
+# Setup workspace
 WORKDIR /workspace
 
 # Prepare directory for bundled assets
@@ -403,9 +403,8 @@ if [ "${JUPYTER_ENABLE:-false}" = "true" ]; then
   else
     # Start without auth (no password provided)
     echo "⚠️  Starting Jupyter Lab WITHOUT authentication"
-    env JUPYTER_ALLOW_NO_AUTH=true nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
+    nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
         --ServerApp.token='' --ServerApp.password='' \
-        --NotebookApp.token='' --NotebookApp.password='' \
         --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
     echo "✅ Jupyter Lab started in background (no auth required)"
   fi
@@ -429,7 +428,7 @@ touch /workspace/model_download.log
 # Wait for the background model downloader to write log content
 echo "⏳ Waiting for model download to start writing logs..."
 WAIT_COUNT=0
-while [ ! -s "/workspace/model_download.log" ] && [ $WAIT_COUNT -lt 10 ]; do
+while [ ! -s "/workspace/model_download.log" ] && [ "$WAIT_COUNT" -lt 10 ]; do
     sleep 1
     WAIT_COUNT=$((WAIT_COUNT + 1))
 done
@@ -439,8 +438,8 @@ if [ -s "/workspace/model_download.log" ]; then
     echo "📋 Recent model download log entries:"
     tail -20 /workspace/model_download.log || true
 else
-    echo "⚠️  Model download log is still empty after 10 seconds"
-    echo "   This is normal if DOWNLOAD_MODELS is not set to 'true'"
+    echo "⚠️  Model download log is still empty after 10 seconds."
+    echo "   This is expected if DOWNLOAD_MODELS is not set to 'true' or if model downloads have not started yet."
 fi
 
 cd /workspace/ComfyUI

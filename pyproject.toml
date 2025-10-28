@@ -2,7 +2,7 @@
 name = "runpod-comfyui-cloud"
 version = "2.0.0"
 description = "Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPUs on RunPod cloud platform"
-authors = ["Sebastian Hein <sebastian@example.com>"]
+authors = ["Sebastian Hein <contact@ecomtree.com>"]
 readme = "README.md"
 license = "MIT"
 homepage = "https://github.com/EcomTree/runpod-comfyui-cloud"

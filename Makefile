@@ -48,7 +48,7 @@ verify:
 
 build:
 	@echo "Building Docker image..."
-	@./scripts/build.sh
+	@./scripts/build.sh || docker build -t runpod-comfyui-cloud .
 
 clean:
 	@echo "Cleaning build artifacts..."
