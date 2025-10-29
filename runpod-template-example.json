@@ -20,7 +20,7 @@
     {
       "key": "JUPYTER_ENABLE",
       "value": "true",
-      "description": "Enable Jupyter Lab on port 8888 (default: false). IMPORTANT: Click Save after adding!"
+      "description": "Enable Jupyter Lab on port 8888 (default: false; pre-enabled in this template). IMPORTANT: Click Save after adding!"
     },
     {
       "key": "DOWNLOAD_MODELS",
