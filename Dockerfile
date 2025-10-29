@@ -516,6 +516,35 @@ if [ ! -f /workspace/.comfyui/user_settings.json ]; then
     fi
 fi
 
+# RunPod Secret Support: Check for RunPod-style secret variables
+# RunPod may expose secrets as RUNPOD_SECRET_<NAME> or through /etc/runpod-volume/secrets/
+secret_env() {
+    VAR_NAME="$1"
+    SECRET_VAR="RUNPOD_SECRET_${VAR_NAME}"
+    # Use indirect expansion to check and set variables
+    if [ -z "${!VAR_NAME:-}" ] && [ -n "${!SECRET_VAR:-}" ]; then
+        echo "🔍 Using ${SECRET_VAR}"
+        export "${VAR_NAME}=${!SECRET_VAR}"
+    fi
+}
+
+secret_env "JUPYTER_ENABLE"
+secret_env "DOWNLOAD_MODELS"
+secret_env "HF_TOKEN"
+# Check for secrets file (alternative RunPod mechanism)
+read_secret_env() {
+    VAR_NAME="$1"
+    FILE_PATH="$2"
+    # Only set if file exists and env var is unset
+    if [ -f "$FILE_PATH" ] && [ -z "${!VAR_NAME:-}" ]; then
+        echo "🔍 Reading $VAR_NAME from secrets file"
+        export "${VAR_NAME}=$(cat "$FILE_PATH" 2>/dev/null || echo '')"
+    fi
+}
+
+read_secret_env "JUPYTER_ENABLE" "/etc/runpod-volume/secrets/jupyter_enable"
+read_secret_env "DOWNLOAD_MODELS" "/etc/runpod-volume/secrets/download_models"
+read_secret_env "HF_TOKEN" "/etc/runpod-volume/secrets/hf_token"
 # Normalize runtime feature flags
 JUPYTER_ENABLE_RAW="${JUPYTER_ENABLE:-}"
 set +e
@@ -546,6 +575,10 @@ if [ "$DOWNLOAD_MODELS_STATUS" -ne 0 ]; then
     echo "⚠️  Unrecognized value for DOWNLOAD_MODELS ('${DOWNLOAD_MODELS_DISPLAY}'). Defaulting to disabled."
 fi
 echo "🔍 DEBUG: DOWNLOAD_MODELS raw='${DOWNLOAD_MODELS_DISPLAY}' normalized='${DOWNLOAD_MODELS_VALUE}'"
+
+# Debug: Print all environment variables starting with JUPYTER, DOWNLOAD, or RUNPOD
+echo "🔍 DEBUG: Environment variable check:"
+env | grep -E "^(JUPYTER|DOWNLOAD|RUNPOD|HF_)" | sort || echo "   (no matching variables found)"
 
 # Start Jupyter Lab in the background (port 8888)
 if [ "${JUPYTER_ENABLE_VALUE:-false}" = "true" ]; then

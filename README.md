@@ -223,6 +223,8 @@ The image includes an advanced model download system with parallel downloads, ch
 
 ### Option 1: RunPod Environment Variables
 
+**IMPORTANT:** In RunPod, you MUST click the "Save" button at the bottom of the Environment Variables section **BEFORE** deploying the pod!
+
 ```bash
 # In RunPod Pod Settings under "Environment Variables"
 DOWNLOAD_MODELS=true
@@ -230,6 +232,24 @@ DOWNLOAD_MAX_WORKERS=4         # Number of parallel download workers (default: 4
 HF_TOKEN=hf_xxxxxxxxxxxxx      # Optional: for protected Hugging Face models
 JUPYTER_ENABLE=true            # Optional: enable Jupyter Lab on port 8888
 JUPYTER_PASSWORD=<your-secure-password> # Optional: enable Jupyter with password
+```
+
+**RunPod Setup Steps:**
+1. Go to your template settings
+2. Scroll to "Environment Variables"
+3. Add each variable **one by one**:
+   - Click "+ Environment Variable"
+   - Enter `JUPYTER_ENABLE` as key
+   - Enter `true` as value
+   - Click the ✓ (checkmark) to confirm
+4. **IMPORTANT:** Click "Save" at the bottom
+5. **Then** deploy your pod
+
+**Troubleshooting:** If Jupyter doesn't start, the variables might not be set. Check the logs:
+```bash
+# SSH into your pod and run:
+env | grep -E "JUPYTER|DOWNLOAD|RUNPOD"
+# You should see your variables listed
 ```
 
 ### Option 2: Docker Run

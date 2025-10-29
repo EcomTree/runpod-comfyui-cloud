@@ -18,14 +18,34 @@
   ],
   "envVars": [
     {
+      "key": "JUPYTER_ENABLE",
+      "value": "true",
+      "description": "Enable Jupyter Lab on port 8888 (default: false; pre-enabled in this template). IMPORTANT: Click Save after adding!"
+    },
+    {
       "key": "DOWNLOAD_MODELS",
       "value": "true",
-      "description": "Enable automatic download of all ComfyUI models on startup"
+      "description": "Enable automatic download of all ComfyUI models on startup (default: false; pre-enabled in this template)"
+    },
+    {
+      "key": "JUPYTER_ALLOW_NO_AUTH",
+      "value": "false",
+      "description": "Allow Jupyter without password (only for trusted environments!)"
+    },
+    {
+      "key": "JUPYTER_PASSWORD",
+      "value": "",
+      "description": "Optional: Set Jupyter password. Leave empty to use JUPYTER_ALLOW_NO_AUTH"
     },
     {
       "key": "HF_TOKEN",
       "value": "",
-      "description": "Optional: Hugging Face token for private model downloads"
+      "description": "Optional: Hugging Face token for private model downloads. Use RunPod Secrets for security!"
+    },
+    {
+      "key": "DOWNLOAD_MAX_WORKERS",
+      "value": "4",
+      "description": "Number of parallel download workers (default: 4, max: 8)"
     }
   ],
   "volumeSize": 500,
