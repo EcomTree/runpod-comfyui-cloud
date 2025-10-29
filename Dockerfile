@@ -7,8 +7,7 @@ FROM ${BASE_IMAGE} AS builder
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1
 
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
+RUN --mount=type=cache,target=/var/cache/apt,id=builder-apt-cache \
     apt-get update && apt-get install -y --no-install-recommends git jq ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
@@ -59,8 +58,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # --- PART 1 & 2: System setup & Python environment ---
 
 # Install system dependencies (with BuildKit caching)
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
+RUN --mount=type=cache,target=/var/cache/apt,id=runtime-apt-cache \
     apt-get update && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends git wget curl unzip python3-venv jq ca-certificates tini && \
     apt-get clean && \
