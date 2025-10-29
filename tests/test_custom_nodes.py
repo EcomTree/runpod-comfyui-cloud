@@ -28,8 +28,8 @@ def test_custom_nodes_config_exists(custom_nodes_config_path):
 def test_custom_nodes_valid_structure(custom_nodes_data):
     """Test that custom_nodes.json has valid structure."""
     assert isinstance(custom_nodes_data, dict), "custom_nodes.json must be a dict"
-    assert 'nodes' in custom_nodes_data, "custom_nodes.json must have 'nodes' key"
-    assert isinstance(custom_nodes_data['nodes'], list), "'nodes' must be a list"
+    assert 'custom_nodes' in custom_nodes_data, "custom_nodes.json must have 'custom_nodes' key"
+    assert isinstance(custom_nodes_data['custom_nodes'], list), "'custom_nodes' must be a list"
 
 
 def test_all_required_nodes_present(custom_nodes_data):
@@ -42,7 +42,7 @@ def test_all_required_nodes_present(custom_nodes_data):
         'ComfyUI-VideoHelperSuite'
     ]
     
-    node_names = [node.get('name', '') for node in custom_nodes_data['nodes']]
+    node_names = [node.get('name', '') for node in custom_nodes_data['custom_nodes']]
     
     for required in required_nodes:
         assert required in node_names, f"Required node '{required}' not found in config"
@@ -50,9 +50,9 @@ def test_all_required_nodes_present(custom_nodes_data):
 
 def test_node_entries_have_required_fields(custom_nodes_data):
     """Test that each node entry has required fields."""
-    required_fields = ['name', 'url']
+    required_fields = ['name', 'repo']
     
-    for i, node in enumerate(custom_nodes_data['nodes']):
+    for i, node in enumerate(custom_nodes_data['custom_nodes']):
         for field in required_fields:
             assert field in node, f"Node {i} missing required field '{field}'"
             assert node[field], f"Node {i} has empty '{field}'"
@@ -62,8 +62,8 @@ def test_node_urls_are_valid_git_repos(custom_nodes_data):
     """Test that all node URLs are valid git repository URLs."""
     invalid_urls = []
     
-    for node in custom_nodes_data['nodes']:
-        url = node.get('url', '')
+    for node in custom_nodes_data['custom_nodes']:
+        url = node.get('repo', '')
         name = node.get('name', 'unknown')
         
         # Should be a valid git URL (HTTPS or git protocol)
@@ -79,7 +79,7 @@ def test_node_urls_are_valid_git_repos(custom_nodes_data):
 
 def test_no_duplicate_nodes(custom_nodes_data):
     """Test that there are no duplicate node names."""
-    node_names = [node.get('name', '') for node in custom_nodes_data['nodes']]
+    node_names = [node.get('name', '') for node in custom_nodes_data['custom_nodes']]
     duplicates = [name for name in node_names if node_names.count(name) > 1]
     
     assert len(duplicates) == 0, f"Found duplicate node names: {duplicates}"
@@ -100,11 +100,11 @@ def test_node_requirements_handling():
     with open(custom_nodes_config_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    for node in data['nodes']:
+    for node in data['custom_nodes']:
         if 'requirements' in node:
-            # If requirements field exists, it should be a list
-            assert isinstance(node['requirements'], list), \
-                f"Node '{node['name']}' requirements must be a list"
+            # If requirements field exists, it should be a boolean or list
+            assert isinstance(node['requirements'], (bool, list)), \
+                f"Node '{node['name']}' requirements must be a boolean or list"
 
 
 def test_custom_nodes_documentation_exists():
@@ -150,7 +150,7 @@ def test_comfyui_directory_structure():
 
 def test_node_enabled_field_optional(custom_nodes_data):
     """Test that 'enabled' field is optional for nodes."""
-    for node in custom_nodes_data['nodes']:
+    for node in custom_nodes_data['custom_nodes']:
         if 'enabled' in node:
             # If present, should be boolean
             assert isinstance(node['enabled'], bool), \
@@ -159,7 +159,7 @@ def test_node_enabled_field_optional(custom_nodes_data):
 
 def test_manager_node_is_first(custom_nodes_data):
     """Test that ComfyUI-Manager is installed first (if present)."""
-    nodes = custom_nodes_data['nodes']
+    nodes = custom_nodes_data['custom_nodes']
     
     manager_indices = [
         i for i, node in enumerate(nodes) 
@@ -176,8 +176,8 @@ def test_github_urls_use_https(custom_nodes_data):
     """Test that all GitHub URLs use HTTPS protocol."""
     http_github_urls = []
     
-    for node in custom_nodes_data['nodes']:
-        url = node.get('url', '')
+    for node in custom_nodes_data['custom_nodes']:
+        url = node.get('repo', '')
         name = node.get('name', 'unknown')
         
         if 'github.com' in url and url.startswith('http://'):

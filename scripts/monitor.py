@@ -10,8 +10,6 @@ Usage:
 import argparse
 import json
 import time
-import sys
-import os
 import signal
 from datetime import datetime
 from pathlib import Path
@@ -273,8 +271,8 @@ class GPUMonitor:
         if PYNVML_AVAILABLE:
             try:
                 pynvml.nvmlShutdown()
-            except:
-                pass
+            except Exception as e:
+                print(f"⚠️  Error during NVML shutdown: {e}")
         
         print("\n✅ Monitoring stopped")
     

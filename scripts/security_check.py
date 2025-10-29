@@ -13,7 +13,6 @@ import sys
 import re
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import List, Dict, Tuple
 
 
 class SecurityChecker:
@@ -286,7 +285,7 @@ class SecurityChecker:
                     
                     for pattern, secret_type in secret_patterns:
                         matches = re.finditer(pattern, content, re.IGNORECASE)
-                        for match in matches:
+                        for _ in matches:
                             # Don't log the actual secret
                             self.add_warning(
                                 "Secrets",

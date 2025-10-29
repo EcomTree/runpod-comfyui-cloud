@@ -15,9 +15,8 @@ Usage:
 import argparse
 import json
 import sys
-import os
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, Optional
 import hashlib
 from urllib.parse import urlparse
 

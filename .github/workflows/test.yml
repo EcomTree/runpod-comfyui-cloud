@@ -125,10 +125,21 @@ jobs:
       
       - name: Verify all scripts are executable
         run: |
+          # Check shell scripts
           for script in scripts/*.sh; do
             if [ ! -x "$script" ]; then
               echo "ERROR: $script is not executable"
               exit 1
+            fi
+          done
+          
+          # Check Python scripts with shebang
+          for script in scripts/*.py; do
+            if head -n1 "$script" | grep -q '^#!/'; then
+              if [ ! -x "$script" ]; then
+                echo "ERROR: $script has shebang but is not executable"
+                exit 1
+              fi
             fi
           done
 
