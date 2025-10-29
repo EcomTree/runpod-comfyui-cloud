@@ -25,7 +25,7 @@
     {
       "key": "DOWNLOAD_MODELS",
       "value": "true",
-      "description": "Enable automatic download of all ComfyUI models on startup (default: false)"
+      "description": "Enable automatic download of all ComfyUI models on startup (default: false; pre-enabled in this template)"
     },
     {
       "key": "JUPYTER_ALLOW_NO_AUTH",
