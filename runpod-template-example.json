@@ -29,7 +29,7 @@
     },
     {
       "key": "JUPYTER_ALLOW_NO_AUTH",
-      "value": "true",
+      "value": "false",
       "description": "Allow Jupyter without password (only for trusted environments!)"
     },
     {
