@@ -66,10 +66,10 @@ RunPod also supports secrets (more secure for tokens):
    - `JUPYTER_ENABLE` = `true`
    - `DOWNLOAD_MODELS` = `true`
    - `HF_TOKEN` = `hf_xxxxx` (if needed)
-4. In your template, reference them as:
-   - `{{ RUNPOD_SECRET_JUPYTER_ENABLE }}`
-   - `{{ RUNPOD_SECRET_DOWNLOAD_MODELS }}`
-   - `{{ RUNPOD_SECRET_HF_TOKEN }}`
+4. In your container, reference them as environment variables:
+   - `$RUNPOD_SECRET_JUPYTER_ENABLE`
+   - `$RUNPOD_SECRET_DOWNLOAD_MODELS`
+   - `$RUNPOD_SECRET_HF_TOKEN`
 
 ## Verification
 
