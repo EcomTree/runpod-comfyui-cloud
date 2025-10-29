@@ -4,7 +4,7 @@
       "name": "ComfyUI-Manager",
       "repo": "https://github.com/ltdrdata/ComfyUI-Manager.git",
       "description": "Essential GUI for installing/managing other custom nodes with auto-update functionality",
-      "branch": "master",
+      "branch": "main",
       "requirements": true,
       "priority": 1
     },
@@ -12,7 +12,7 @@
       "name": "ComfyUI-Impact-Pack",
       "repo": "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git",
       "description": "Advanced masking, segmentation, object detection, and image enhancement utilities",
-      "branch": "master",
+      "branch": "Main",
       "requirements": true,
       "priority": 2
     },
