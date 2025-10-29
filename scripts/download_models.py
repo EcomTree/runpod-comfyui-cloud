@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-ComfyUI Model Downloader Script
+ComfyUI Model Downloader Script - Enhanced Version
 Downloads all validated ComfyUI models to the specified directory.
+
+Features:
+- Parallel downloads with ThreadPoolExecutor
+- SHA256 checksum verification
+- Resume capability with HTTP Range headers
+- Progress bars with tqdm
+- Exponential backoff retry logic
 """
 
 import os
@@ -9,8 +16,12 @@ import json
 import requests
 import time
 import sys
+import hashlib
 from pathlib import Path
 from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Optional, Dict, List, Tuple
+from tqdm import tqdm
 
 # Constants
 PROGRESS_REPORT_INTERVAL_MB = 10  # Report progress every 10 MB
@@ -20,6 +31,7 @@ KB_TO_BYTES = 1024  # Bytes in one kilobyte
 MIN_VALID_FILE_SIZE_KB = (
     10  # Minimum file size in KB to consider a download complete (10KB for small LoRAs)
 )
+MAX_WORKERS = int(os.getenv("DOWNLOAD_MAX_WORKERS", "4"))  # Parallel download workers
 
 # Model classification mapping: ordered from most specific to most general
 MODEL_CLASSIFICATION_MAPPING = [
@@ -41,7 +53,7 @@ MODEL_CLASSIFICATION_MAPPING = [
 def setup_hf_session():
     """Set up a requests.Session with Hugging Face token if available."""
     session = requests.Session()
-    session.headers.update({"User-Agent": "ComfyUI-Model-Downloader/1.0"})
+    session.headers.update({"User-Agent": "ComfyUI-Model-Downloader/2.0"})
     hf_token = os.getenv("HF_TOKEN")
     if hf_token:
         session.headers["Authorization"] = f"Bearer {hf_token.strip()}"
@@ -52,13 +64,43 @@ def setup_hf_session():
 
 SESSION = setup_hf_session()
 
-# Codex Environment Detection:
-# A 'Codex environment' is typically identified by either:
-#   1. The presence of the '/workspace' directory (used in Codex/RunPod cloud pods)
-#   2. The 'CODEX_WORKSPACE' environment variable being set
-# These indicators are used to determine if the script is running inside a Codex/RunPod cloud pod,
-# which may require specific setup steps and optimizations. If neither is present, the script assumes
-# it is running in a non-Codex environment and may adjust its behavior accordingly.
+
+def verify_checksum(file_path: Path, expected_sha256: str) -> bool:
+    """
+    Verify SHA256 checksum of a file.
+    
+    Args:
+        file_path: Path to the file
+        expected_sha256: Expected SHA256 hash
+        
+    Returns:
+        True if checksum matches, False otherwise
+    """
+    if not expected_sha256:
+        return True  # Skip verification if no checksum provided
+    
+    print(f"🔐 Verifying checksum for {file_path.name}...")
+    sha256_hash = hashlib.sha256()
+    
+    try:
+        with open(file_path, "rb") as f:
+            # Read in chunks to handle large files
+            for byte_block in iter(lambda: f.read(8192), b""):
+                sha256_hash.update(byte_block)
+        
+        calculated_hash = sha256_hash.hexdigest()
+        
+        if calculated_hash.lower() == expected_sha256.lower():
+            print(f"✅ Checksum verified for {file_path.name}")
+            return True
+        else:
+            print(f"❌ Checksum mismatch for {file_path.name}")
+            print(f"   Expected: {expected_sha256}")
+            print(f"   Got:      {calculated_hash}")
+            return False
+    except Exception as e:
+        print(f"❌ Error verifying checksum: {e}")
+        return False
 
 
 class ComfyUIModelDownloader:
@@ -210,67 +252,130 @@ class ComfyUIModelDownloader:
         # Default fallback
         return "diffusion_models"
 
-    def download_file(self, url, target_path, retry_count=3):
-        """Downloads a single file with retry logic."""
+    def download_file_with_resume(
+        self, 
+        url: str, 
+        target_path: Path, 
+        expected_checksum: Optional[str] = None,
+        retry_count: int = 3
+    ) -> bool:
+        """
+        Downloads a single file with resume capability and retry logic.
+        
+        Args:
+            url: URL to download from
+            target_path: Path to save the file
+            expected_checksum: Expected SHA256 checksum (optional)
+            retry_count: Number of retry attempts
+            
+        Returns:
+            True if download successful, False otherwise
+        """
         target_path = Path(target_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Clean filename from URL (remove query parameters)
+        clean_url = url.split("?")[0]
+        parsed_url = urlparse(clean_url)
+        filename = parsed_url.path.split("/")[-1] if parsed_url.path else "unknown"
+
         for attempt in range(retry_count):
-            # Reset progress tracking for each attempt
-            last_reported = 0
-
             try:
-                # Clean filename from URL (remove query parameters)
-                clean_url = url.split("?")[0]
-                parsed_url = urlparse(clean_url)
-                filename = parsed_url.path.split("/")[-1] if parsed_url.path else "unknown"
-                print(f"⬇️  Downloading: {filename} (Attempt {attempt + 1}/{retry_count})")
-
-                # Stream download for large files
-                with self.session.get(url, stream=True, timeout=30) as response:
-                    response.raise_for_status()
-
-                    # Retrieve file size for progress output
+                # Check if file exists and get current size
+                existing_size = 0
+                if target_path.exists():
+                    existing_size = target_path.stat().st_size
+                    
+                    # Try HEAD request to get total size
                     try:
-                        total_size = int(response.headers.get("content-length", 0))
-                    except (TypeError, ValueError):
-                        total_size = 0
-
-                    with open(target_path, "wb") as f:
-                        downloaded = 0
-                        for chunk in response.iter_content(chunk_size=8192):
-                            if chunk:
-                                f.write(chunk)
-                                downloaded += len(chunk)
-
-                                # Progress reporting
-                                if total_size > 0:
-                                    report_threshold = PROGRESS_REPORT_INTERVAL_MB * MIB_TO_BYTES
-                                    if (
-                                        downloaded - last_reported >= report_threshold
-                                        or downloaded == total_size
-                                    ):
-                                        progress = (downloaded / total_size) * 100
-                                        print(
-                                            f"   📈 {progress:.1f}% ({downloaded / MIB_TO_BYTES:.1f} MB)"
-                                        )
-                                        last_reported = downloaded
+                        head_response = self.session.head(url, timeout=10, allow_redirects=True)
+                        total_size = int(head_response.headers.get("content-length", 0))
+                        
+                        # If file is complete, verify checksum if provided
+                        if existing_size == total_size and total_size > 0:
+                            if expected_checksum:
+                                if verify_checksum(target_path, expected_checksum):
+                                    print(f"✅ File already complete: {filename}")
+                                    return True
                                 else:
-                                    # For files without content-length header, throttle logging
-                                    report_threshold = PROGRESS_REPORT_INTERVAL_MB * MIB_TO_BYTES
-                                    if downloaded - last_reported >= report_threshold:
-                                        print(
-                                            f"   📥 Downloaded: {downloaded / MIB_TO_BYTES:.1f} MB"
-                                        )
-                                        last_reported = downloaded
+                                    print(f"⚠️  Checksum mismatch, re-downloading: {filename}")
+                                    target_path.unlink()
+                                    existing_size = 0
+                            else:
+                                print(f"✅ File already complete: {filename}")
+                                return True
+                    except Exception as e:
+                        print(f"⚠️  Could not verify existing file size: {e}")
 
-                print(f"✅ Successfully downloaded: {target_path}")
+                # Set up headers for resume capability
+                headers = {}
+                mode = "wb"
+                if existing_size > MIN_VALID_FILE_SIZE_KB * KB_TO_BYTES:
+                    headers["Range"] = f"bytes={existing_size}-"
+                    mode = "ab"
+                    print(f"▶️  Resuming download: {filename} from {existing_size / MIB_TO_BYTES:.1f} MB")
+                else:
+                    print(f"⬇️  Downloading: {filename} (Attempt {attempt + 1}/{retry_count})")
+
+                # Stream download with progress bar
+                with self.session.get(url, stream=True, timeout=30, headers=headers) as response:
+                    response.raise_for_status()
+                    
+                    # Handle HTTP 416 Range Not Satisfiable
+                    if response.status_code == 416:
+                        print(f"⚠️  Resume not supported, restarting download: {filename}")
+                        if target_path.exists():
+                            target_path.unlink()
+                        existing_size = 0
+                        headers = {}
+                        mode = "wb"
+                        # Retry without Range header
+                        response = self.session.get(url, stream=True, timeout=30)
+                        response.raise_for_status()
+
+                    # Get total size
+                    if response.status_code == 206:  # Partial content
+                        content_range = response.headers.get("content-range", "")
+                        if content_range:
+                            total_size = int(content_range.split("/")[-1])
+                        else:
+                            total_size = existing_size + int(response.headers.get("content-length", 0))
+                    else:
+                        total_size = int(response.headers.get("content-length", 0))
+
+                    # Create progress bar
+                    with tqdm(
+                        total=total_size,
+                        initial=existing_size,
+                        unit="B",
+                        unit_scale=True,
+                        unit_divisor=1024,
+                        desc=filename[:40],
+                        disable=not sys.stdout.isatty()  # Disable in non-interactive mode
+                    ) as pbar:
+                        with open(target_path, mode) as f:
+                            for chunk in response.iter_content(chunk_size=8192):
+                                if chunk:
+                                    f.write(chunk)
+                                    pbar.update(len(chunk))
+
+                # Verify checksum if provided
+                if expected_checksum:
+                    if not verify_checksum(target_path, expected_checksum):
+                        print(f"❌ Checksum verification failed for: {filename}")
+                        if attempt < retry_count - 1:
+                            print(f"🔄 Retrying download...")
+                            target_path.unlink()
+                            continue
+                        return False
+
+                print(f"✅ Successfully downloaded: {filename}")
                 return True
 
             except requests.exceptions.RequestException as e:
                 print(f"❌ Download error (Attempt {attempt + 1}): {e}")
                 if attempt < retry_count - 1:
-                    wait_time = (attempt + 1) * RETRY_BASE_DELAY_SECONDS  # Exponential backoff
+                    wait_time = (2 ** attempt) * RETRY_BASE_DELAY_SECONDS  # Exponential backoff
                     print(f"⏳ Waiting {wait_time} seconds before retry...")
                     time.sleep(wait_time)
                 else:
@@ -281,21 +386,32 @@ class ComfyUIModelDownloader:
                 print(f"❌ Unexpected error: {e}")
                 return False
 
-    def download_all_models(self):
-        """Downloads all models sequentially for stability."""
-        valid_links = self.load_verified_links()
+        return False
 
-        if not valid_links:
-            print("❌ No validated links found!")
+    def download_all_models_parallel(self, models_with_checksums: List[Dict]):
+        """
+        Downloads all models using parallel workers.
+        
+        Args:
+            models_with_checksums: List of dicts with 'url' and optional 'checksum' keys
+        """
+        if not models_with_checksums:
+            print("❌ No models to download!")
             return
 
-        print(f"🚀 Starting download of {len(valid_links)} models...")
+        print(f"🚀 Starting parallel download of {len(models_with_checksums)} models...")
+        print(f"👷 Using {MAX_WORKERS} parallel workers")
         print(f"📁 Target directory: {self.models_dir}")
 
         successful = 0
         failed = 0
+        skipped = 0
 
-        def download_single_model(url):
+        def download_single_model(model_info: Dict) -> Tuple[str, bool]:
+            """Download a single model and return (url, success)"""
+            url = model_info.get("url")
+            checksum = model_info.get("checksum")
+            
             # Extract clean filename from URL
             clean_url = url.split("?")[0]
             parsed_url = urlparse(clean_url)
@@ -304,45 +420,58 @@ class ComfyUIModelDownloader:
             target_dir = self.determine_target_directory(url)
             target_path = self.models_dir / target_dir / filename
 
-            # Check if file exists and has reasonable size (not just a partial download)
+            # Check if file exists and has reasonable size
             if target_path.exists():
                 file_size = target_path.stat().st_size
-                # Use conservative threshold (10KB) - catches obvious failures
-                # but allows small models like LoRAs (which can be <1MB)
                 min_valid_size = MIN_VALID_FILE_SIZE_KB * KB_TO_BYTES
                 if file_size > min_valid_size:
-                    print(
-                        f"⏭️  Skipping (already exists): {target_path.name} ({file_size / MIB_TO_BYTES:.1f} MB)"
-                    )
-                    return True
+                    # If checksum provided, verify it
+                    if checksum:
+                        if verify_checksum(target_path, checksum):
+                            print(f"⏭️  Skipping (already exists with valid checksum): {filename}")
+                            return (url, True, True)  # URL, success, skipped
+                        else:
+                            print(f"⚠️  Checksum mismatch, re-downloading: {filename}")
+                            target_path.unlink()
+                    else:
+                        print(f"⏭️  Skipping (already exists): {filename} ({file_size / MIB_TO_BYTES:.1f} MB)")
+                        return (url, True, True)  # URL, success, skipped
                 else:
-                    print(
-                        f"⚠️  Incomplete file detected ({file_size / KB_TO_BYTES:.1f} KB), re-downloading: {target_path.name}"
-                    )
-                    target_path.unlink()  # Delete incomplete file
+                    print(f"⚠️  Incomplete file detected ({file_size / KB_TO_BYTES:.1f} KB), re-downloading: {filename}")
+                    target_path.unlink()
 
-            return self.download_file(url, target_path)
+            success = self.download_file_with_resume(url, target_path, checksum)
+            return (url, success, False)  # URL, success, not skipped
 
-        # Execute downloads sequentially (more stable for large files)
-        for i, url in enumerate(valid_links, 1):
-            # Extract filename from URL properly (handle query parameters)
-            clean_url = url.split("?")[0]
-            parsed_url = urlparse(clean_url)
-            filename = parsed_url.path.split("/")[-1] if parsed_url.path else "unknown"
-            print(f"\n📦 [{i}/{len(valid_links)}] Processing: {filename}")
+        # Use ThreadPoolExecutor for parallel downloads
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            # Submit all download tasks
+            future_to_model = {
+                executor.submit(download_single_model, model): model 
+                for model in models_with_checksums
+            }
 
-            if download_single_model(url):
-                successful += 1
-            else:
-                failed += 1
-
-            # Short pause between downloads
-            time.sleep(1)
+            # Process completed downloads
+            for future in as_completed(future_to_model):
+                try:
+                    url, success, was_skipped = future.result()
+                    if was_skipped:
+                        skipped += 1
+                    elif success:
+                        successful += 1
+                    else:
+                        failed += 1
+                except Exception as e:
+                    print(f"❌ Unexpected error in download task: {e}")
+                    failed += 1
 
         print("\n🎉 Download Statistics:")
         print(f"✅ Successful: {successful}")
+        print(f"⏭️  Skipped: {skipped}")
         print(f"❌ Failed: {failed}")
-        print(f"📊 Success rate: {(successful / (successful + failed)) * 100:.1f}%")
+        total = successful + failed
+        if total > 0:
+            print(f"📊 Success rate: {(successful / total) * 100:.1f}%")
 
         if failed > 0:
             print(f"\n⚠️  {failed} downloads failed.")
@@ -405,6 +534,46 @@ class ComfyUIModelDownloader:
         return summary_file
 
 
+def load_models_with_checksums() -> List[Dict]:
+    """
+    Load models from models_download.json with checksum support.
+    
+    Returns:
+        List of dicts with 'url' and optional 'checksum' keys
+    """
+    models_file = Path("/workspace/models_download.json")
+    
+    if not models_file.exists():
+        # Try alternative location
+        models_file = Path("models_download.json")
+    
+    if not models_file.exists():
+        print("❌ models_download.json not found!")
+        return []
+    
+    try:
+        with open(models_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        models_list = []
+        for category, items in data.items():
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, str):
+                        # Legacy format: just URL string
+                        models_list.append({"url": item})
+                    elif isinstance(item, dict):
+                        # New format: dict with url and optional checksum
+                        models_list.append(item)
+        
+        print(f"✅ Loaded {len(models_list)} models from models_download.json")
+        return models_list
+        
+    except Exception as e:
+        print(f"❌ Error loading models_download.json: {e}")
+        return []
+
+
 def main():
     """Main function."""
     if len(sys.argv) > 1:
@@ -412,9 +581,10 @@ def main():
     else:
         base_dir = "/workspace"
 
-    print("🤖 ComfyUI Model Downloader")
+    print("🤖 ComfyUI Model Downloader v2.0 (Enhanced)")
     print("=" * 50)
     print(f"📁 Base directory: {base_dir}")
+    print(f"👷 Max workers: {MAX_WORKERS}")
 
     downloader = ComfyUIModelDownloader(base_dir)
 
@@ -422,6 +592,7 @@ def main():
     print("\n⚠️  WARNING: This will download many large models!")
     print("💾 Make sure you have enough storage space available.")
     print("🌐 A stable internet connection is recommended.")
+    print("⚡ Using parallel downloads for better performance.")
 
     if sys.stdin.isatty():
         try:
@@ -430,9 +601,18 @@ def main():
             print("\n⏹️  Download cancelled.")
             sys.exit(0)
 
-    # Start download
+    # Load models with checksums from JSON
+    models_with_checksums = load_models_with_checksums()
+    
+    if not models_with_checksums:
+        # Fallback to old method using verified links
+        print("⚠️  Falling back to link verification method...")
+        valid_links = downloader.load_verified_links()
+        models_with_checksums = [{"url": url} for url in valid_links]
+
+    # Start parallel download
     start_time = time.time()
-    downloader.download_all_models()  # Sequential for stability
+    downloader.download_all_models_parallel(models_with_checksums)
     download_time = time.time() - start_time
 
     # Create summary

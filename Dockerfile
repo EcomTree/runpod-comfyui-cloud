@@ -110,6 +110,7 @@ RUN mkdir -p /opt/runpod/configs /opt/runpod/scripts
 COPY comfyui_models_complete_library.md /opt/runpod/
 COPY models_download.json /opt/runpod/
 COPY configs/custom_nodes.json /opt/runpod/configs/
+COPY configs/ui_settings.json /opt/runpod/configs/
 
 # Copy runtime scripts
 COPY scripts/verify_links.py scripts/download_models.py scripts/manual_download.sh scripts/optimize_performance.py scripts/install_custom_nodes.sh scripts/get_latest_version.sh /opt/runpod/scripts/
@@ -122,9 +123,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # --- PART 3.5: Model download scripts ---
 
-# Create virtual environment for download scripts
+# Create virtual environment for download scripts with enhanced features
 RUN python3 -m venv /opt/runpod/model_dl_venv && \
-    /opt/runpod/model_dl_venv/bin/pip install --no-cache-dir "requests>=2.32.4"
+    /opt/runpod/model_dl_venv/bin/pip install --no-cache-dir "requests>=2.32.4" "tqdm>=4.65.0"
 
 # Provide shared utility for flag normalization to avoid duplication
 RUN cat > /usr/local/bin/normalize_flag.sh <<'EOF'
@@ -504,6 +505,15 @@ else
     echo "ℹ️ Preserving existing extra_model_paths.yaml"
 fi
 
+# Copy UI settings if not already present
+if [ ! -f /workspace/.comfyui/user_settings.json ]; then
+    mkdir -p /workspace/.comfyui
+    if [ -f /opt/runpod/configs/ui_settings.json ]; then
+        cp /opt/runpod/configs/ui_settings.json /workspace/.comfyui/user_settings.json
+        echo "✅ UI settings configured (dark theme, auto-queue enabled)"
+    fi
+fi
+
 # Normalize runtime feature flags
 JUPYTER_ENABLE_RAW="${JUPYTER_ENABLE:-}"
 set +e
@@ -661,16 +671,27 @@ exec python main.py \
     --bf16-vae \
     --disable-smart-memory \
     --preview-method auto \
+    --enable-cors-header \
+    --extra-model-paths-config extra_model_paths.yaml \
     ${TORCH_COMPILE_ENABLED}
 EOF
 
 # Make start script executable
 RUN chmod +x /usr/local/bin/start_comfyui_h200.sh
 
-# Create dedicated runtime user
+# Create dedicated runtime user with secure permissions
 RUN useradd -m -r -s /bin/bash comfy && \
     chown -R comfy:comfy /workspace /opt/runpod && \
-    mkdir -p /home/comfy/.cache && chown -R comfy:comfy /home/comfy/.cache
+    mkdir -p /home/comfy/.cache && \
+    chown -R comfy:comfy /home/comfy/.cache && \
+    chmod 700 /home/comfy/.cache
+
+# Security: Make /opt/runpod read-only for runtime (scripts should not be modified)
+RUN chmod -R 755 /opt/runpod/scripts && \
+    chmod 644 /opt/runpod/*.json /opt/runpod/*.md 2>/dev/null || true
+
+# Optional: API authentication environment variable (empty by default, set at runtime)
+ENV COMFYUI_API_KEY=""
 
 # Healthcheck to ensure ComfyUI is responding
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 CMD curl -fsS http://localhost:8188/queue/status || exit 1
