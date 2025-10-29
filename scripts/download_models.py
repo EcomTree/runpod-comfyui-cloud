@@ -375,7 +375,8 @@ class ComfyUIModelDownloader:
             except requests.exceptions.RequestException as e:
                 print(f"❌ Download error (Attempt {attempt + 1}): {e}")
                 if attempt < retry_count - 1:
-                    wait_time = (2 ** attempt) * RETRY_BASE_DELAY_SECONDS  # Exponential backoff
+                    # Exponential backoff with cap at 60 seconds
+                    wait_time = min((2 ** (attempt + 1)) * RETRY_BASE_DELAY_SECONDS, 60)
                     print(f"⏳ Waiting {wait_time} seconds before retry...")
                     time.sleep(wait_time)
                 else:

@@ -3,6 +3,8 @@
 # Checks ComfyUI API, GPU availability, and VRAM usage
 # Exit 0 if healthy, 1 if issues detected
 
+# Note: We intentionally do NOT use 'set -e' here because we want to run
+# all health checks and collect results, rather than exiting on first failure.
 set -uo pipefail
 
 # Colors for output
