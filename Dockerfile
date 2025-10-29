@@ -518,21 +518,19 @@ fi
 
 # RunPod Secret Support: Check for RunPod-style secret variables
 # RunPod may expose secrets as RUNPOD_SECRET_<NAME> or through /etc/runpod-volume/secrets/
-if [ -z "${JUPYTER_ENABLE:-}" ] && [ -n "${RUNPOD_SECRET_JUPYTER_ENABLE:-}" ]; then
-    echo "🔍 Using RUNPOD_SECRET_JUPYTER_ENABLE"
-    export JUPYTER_ENABLE="${RUNPOD_SECRET_JUPYTER_ENABLE}"
-fi
+secret_env() {
+    VAR_NAME="$1"
+    SECRET_VAR="RUNPOD_SECRET_${VAR_NAME}"
+    # Use indirect expansion to check and set variables
+    if [ -z "${!VAR_NAME:-}" ] && [ -n "${!SECRET_VAR:-}" ]; then
+        echo "🔍 Using ${SECRET_VAR}"
+        export "${VAR_NAME}=${!SECRET_VAR}"
+    fi
+}
 
-if [ -z "${DOWNLOAD_MODELS:-}" ] && [ -n "${RUNPOD_SECRET_DOWNLOAD_MODELS:-}" ]; then
-    echo "🔍 Using RUNPOD_SECRET_DOWNLOAD_MODELS"
-    export DOWNLOAD_MODELS="${RUNPOD_SECRET_DOWNLOAD_MODELS}"
-fi
-
-if [ -z "${HF_TOKEN:-}" ] && [ -n "${RUNPOD_SECRET_HF_TOKEN:-}" ]; then
-    echo "🔍 Using RUNPOD_SECRET_HF_TOKEN"
-    export HF_TOKEN="${RUNPOD_SECRET_HF_TOKEN}"
-fi
-
+secret_env "JUPYTER_ENABLE"
+secret_env "DOWNLOAD_MODELS"
+secret_env "HF_TOKEN"
 # Check for secrets file (alternative RunPod mechanism)
 if [ -f "/etc/runpod-volume/secrets/jupyter_enable" ] && [ -z "${JUPYTER_ENABLE:-}" ]; then
     echo "🔍 Reading JUPYTER_ENABLE from secrets file"
