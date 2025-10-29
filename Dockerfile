@@ -544,6 +544,10 @@ if [ -f "/etc/runpod-volume/secrets/download_models" ] && [ -z "${DOWNLOAD_MODEL
     export DOWNLOAD_MODELS="$(cat /etc/runpod-volume/secrets/download_models 2>/dev/null || echo '')"
 fi
 
+if [ -f "/etc/runpod-volume/secrets/hf_token" ] && [ -z "${HF_TOKEN:-}" ]; then
+    echo "🔍 Reading HF_TOKEN from secrets file"
+    export HF_TOKEN="$(cat /etc/runpod-volume/secrets/hf_token 2>/dev/null || echo '')"
+fi
 # Normalize runtime feature flags
 JUPYTER_ENABLE_RAW="${JUPYTER_ENABLE:-}"
 set +e
