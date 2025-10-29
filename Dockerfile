@@ -538,7 +538,7 @@ read_secret_env() {
     # Only set if file exists and env var is unset
     if [ -f "$FILE_PATH" ] && [ -z "${!VAR_NAME:-}" ]; then
         echo "🔍 Reading $VAR_NAME from secrets file"
-        export "$VAR_NAME"="$(cat "$FILE_PATH" 2>/dev/null || echo '')"
+        export "${VAR_NAME}=$(cat "$FILE_PATH" 2>/dev/null || echo '')"
     fi
 }
 
