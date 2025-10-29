@@ -3,7 +3,7 @@
 # Checks ComfyUI API, GPU availability, and VRAM usage
 # Exit 0 if healthy, 1 if issues detected
 
-set -e
+set -uo pipefail
 
 # Colors for output
 RED='\033[0;31m'
