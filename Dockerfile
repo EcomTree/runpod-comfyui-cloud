@@ -1,20 +1,68 @@
-# syntax=docker/dockerfile:1
-# Base image specified by the RunPod template
-# Platform is provided through build arguments
-FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04
+# syntax=docker/dockerfile:1.7
+
+ARG BASE_IMAGE=runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04
+
+FROM ${BASE_IMAGE} AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1
+
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt \
+    apt-get update && apt-get install -y --no-install-recommends git jq ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/build
+
+COPY scripts/get_latest_version.sh /opt/build/scripts/get_latest_version.sh
+COPY scripts/install_custom_nodes.sh /opt/build/scripts/install_custom_nodes.sh
+COPY configs/custom_nodes.json /opt/build/configs/custom_nodes.json
+
+RUN chmod +x /opt/build/scripts/get_latest_version.sh /opt/build/scripts/install_custom_nodes.sh
+
+ARG COMFYUI_VERSION
+RUN set -e; \
+    VERSION_INPUT="${COMFYUI_VERSION:-}"; \
+    if [ -z "$VERSION_INPUT" ]; then \
+        VERSION_INPUT=$(/opt/build/scripts/get_latest_version.sh | tail -n1); \
+    fi; \
+    if [ -z "$VERSION_INPUT" ]; \
+    then \
+        VERSION_INPUT="master"; \
+    fi; \
+    echo "$VERSION_INPUT" > /opt/build/comfyui_version.txt
+
+RUN set -e; \
+    VERSION=$(cat /opt/build/comfyui_version.txt); \
+    echo "📦 Cloning ComfyUI ${VERSION}..." >&2; \
+    git clone --depth 1 --branch "$VERSION" https://github.com/comfyanonymous/ComfyUI.git || { \
+        echo "⚠️  Branch ${VERSION} not found, using master" >&2; \
+        rm -rf ComfyUI; \
+        git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git; \
+    }; \
+    cd ComfyUI && rm -rf .git
+
+RUN INSTALL_REQUIREMENTS=false SKIP_EXISTING=false /opt/build/scripts/install_custom_nodes.sh /opt/build/ComfyUI && \
+    find /opt/build/ComfyUI -name ".git" -type d -prune -exec rm -rf {} + && \
+    find /opt/build/ComfyUI -name "__pycache__" -type d -prune -exec rm -rf {} +
+
+FROM ${BASE_IMAGE} AS runtime
 
 # Image metadata
 LABEL maintainer="Sebastian"
 LABEL description="Optimized ComfyUI with WAN 2.2 for NVIDIA H200 based on validated instructions."
 
 # Environment variable to suppress interactive prompts during install
-ENV DEBIAN_FRONTEND=noninteractive
-
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PATH="/home/comfy/.local/bin:${PATH}"
 # --- PART 1 & 2: System setup & Python environment ---
 
-# Install system dependencies
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y git wget curl unzip python3-venv && \
+# Install system dependencies (with BuildKit caching)
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt \
+    apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends git wget curl unzip python3-venv jq ca-certificates tini && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -23,10 +71,11 @@ RUN apt-get update && apt-get upgrade -y && \
 # NOTE: The 'nvidia-tensorrt' package has been removed from the pip install command.
 # Reason: Migrated to upstream 'tensorrt' package for compatibility with H200 hardware and CUDA 12.8.
 # If you require 'nvidia-tensorrt', please update your workflow or install it manually.
-RUN pip uninstall -y torch torchvision torchaudio xformers && \
-    pip install --no-cache-dir torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128 && \
-    pip install --no-cache-dir ninja flash-attn --no-build-isolation && \
-    pip install --no-cache-dir tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip uninstall -y torch torchvision torchaudio xformers && \
+    pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128 && \
+    pip install ninja flash-attn --no-build-isolation && \
+    pip install tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
 
 # Setup workspace
 WORKDIR /workspace
@@ -36,47 +85,42 @@ RUN mkdir -p /opt/runpod
 
 # --- PART 3: ComfyUI installation ---
 
-# Clone ComfyUI and install its Python dependencies (without PyTorch)
-RUN set -e; \
-    git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git && \
-    cd ComfyUI && \
+# Copy ComfyUI from builder stage (pre-cloned with custom nodes)
+COPY --from=builder /opt/build/ComfyUI /workspace/ComfyUI
+COPY --from=builder /opt/build/comfyui_version.txt /opt/runpod/comfyui_version.txt
+
+# Install ComfyUI Python dependencies (without PyTorch)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    cd /workspace/ComfyUI && \
     if [ ! -f requirements.txt ]; then \
         echo "❌ requirements.txt not found in ComfyUI repository." >&2; \
         exit 1; \
     fi && \
     grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" > /tmp/comfyui-requirements.txt && \
     if [ -s /tmp/comfyui-requirements.txt ]; then \
-        pip install --no-cache-dir -r /tmp/comfyui-requirements.txt; \
+        pip install -r /tmp/comfyui-requirements.txt; \
     else \
         echo "ℹ️  No additional ComfyUI Python dependencies detected."; \
     fi && \
     rm -f /tmp/comfyui-requirements.txt && \
-    pip install --no-cache-dir librosa soundfile av moviepy
+    pip install librosa soundfile av moviepy
 
-# Install ComfyUI Manager
-RUN set -e; \
-    cd /workspace/ComfyUI && \
-    mkdir -p custom_nodes && \
-    cd custom_nodes && \
-    if [ -d ComfyUI-Manager/.git ]; then \
-        echo "ℹ️  ComfyUI-Manager already present, skipping fresh clone."; \
-    else \
-        git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git || { echo "❌ Failed to clone ComfyUI-Manager." >&2; exit 1; }; \
-    fi && \
-    cd ComfyUI-Manager && \
-    if [ ! -f requirements.txt ]; then \
-        echo "❌ requirements.txt not found in ComfyUI-Manager." >&2; \
-        exit 1; \
-    fi && \
-    pip install --no-cache-dir -r requirements.txt
+# Copy configuration assets
+RUN mkdir -p /opt/runpod/configs /opt/runpod/scripts
+COPY comfyui_models_complete_library.md /opt/runpod/
+COPY models_download.json /opt/runpod/
+COPY configs/custom_nodes.json /opt/runpod/configs/
+
+# Copy runtime scripts
+COPY scripts/verify_links.py scripts/download_models.py scripts/manual_download.sh scripts/optimize_performance.py scripts/install_custom_nodes.sh scripts/get_latest_version.sh /opt/runpod/scripts/
+RUN chmod +x /opt/runpod/scripts/*.sh && chmod +x /opt/runpod/scripts/*.py
+
+# Install custom node Python requirements only
+RUN --mount=type=cache,target=/root/.cache/pip \
+    INSTALL_REQUIREMENTS_ONLY=true SKIP_EXISTING=true PIP_INSTALL_FLAGS="--user --no-cache-dir" /opt/runpod/scripts/install_custom_nodes.sh /workspace/ComfyUI && \
+    echo "✅ Custom node requirements installed"
 
 # --- PART 3.5: Model download scripts ---
-
-# Copy model documentation and scripts into the image
-COPY comfyui_models_complete_library.md /opt/runpod/
-RUN mkdir -p /opt/runpod/scripts
-COPY scripts/verify_links.py scripts/download_models.py scripts/manual_download.sh /opt/runpod/scripts/
-RUN chmod +x /opt/runpod/scripts/*.sh
 
 # Create virtual environment for download scripts
 RUN python3 -m venv /opt/runpod/model_dl_venv && \
@@ -151,6 +195,31 @@ if [ "${DOWNLOAD_MODELS_VALUE:-false}" = "true" ]; then
 
     cd /workspace
 
+    # Copy models_download.json (primary source)
+    JSON_SOURCE="/opt/runpod/models_download.json"
+    JSON_DEST="/workspace/models_download.json"
+    
+    echo "🔍 DEBUG: Checking models_download.json..."
+    if [ -f "$JSON_SOURCE" ]; then
+        echo "✅ JSON source found: $JSON_SOURCE"
+        ls -lh "$JSON_SOURCE"
+        if [ ! -f "$JSON_DEST" ]; then
+            echo "📄 Copying models_download.json into /workspace"
+            cp "$JSON_SOURCE" "$JSON_DEST" || {
+                echo "❌ Failed to copy JSON file!"
+                echo "Source: $JSON_SOURCE"
+                echo "Destination: $JSON_DEST"
+                exit 1
+            }
+            echo "✅ JSON file copied successfully"
+        else
+            echo "✅ JSON destination already exists: $JSON_DEST"
+        fi
+    else
+        echo "⚠️  JSON source NOT found: $JSON_SOURCE"
+    fi
+    
+    # Copy markdown file (fallback/legacy)
     LIBRARY_SOURCE="/opt/runpod/comfyui_models_complete_library.md"
     LIBRARY_DEST="/workspace/comfyui_models_complete_library.md"
 
@@ -158,25 +227,29 @@ if [ "${DOWNLOAD_MODELS_VALUE:-false}" = "true" ]; then
     if [ -f "$LIBRARY_SOURCE" ]; then
         echo "✅ Library source found: $LIBRARY_SOURCE"
         ls -lh "$LIBRARY_SOURCE"
+        if [ ! -f "$LIBRARY_DEST" ]; then
+            echo "📄 Copying comfyui_models_complete_library.md into /workspace"
+            cp "$LIBRARY_SOURCE" "$LIBRARY_DEST" || {
+                echo "❌ Failed to copy library file!"
+                echo "Source: $LIBRARY_SOURCE"
+                echo "Destination: $LIBRARY_DEST"
+                exit 1
+            }
+            echo "✅ Library file copied successfully"
+        else
+            echo "✅ Library destination already exists: $LIBRARY_DEST"
+        fi
     else
-        echo "❌ Library source NOT found: $LIBRARY_SOURCE"
-        echo "❌ Cannot proceed with model downloads without library file!"
+        echo "⚠️  Library source NOT found: $LIBRARY_SOURCE"
+    fi
+    
+    # Check if at least one source exists
+    if [ ! -f "$JSON_DEST" ] && [ ! -f "$LIBRARY_DEST" ]; then
+        echo "❌ Neither models_download.json nor comfyui_models_complete_library.md found!"
+        echo "❌ Cannot proceed with model downloads!"
         echo "Available files in /opt/runpod/:"
         ls -la /opt/runpod/ || true
         exit 1
-    fi
-
-    if [ ! -f "$LIBRARY_DEST" ]; then
-        echo "📄 Copying comfyui_models_complete_library.md into /workspace"
-        cp "$LIBRARY_SOURCE" "$LIBRARY_DEST" || {
-            echo "❌ Failed to copy library file!"
-            echo "Source: $LIBRARY_SOURCE"
-            echo "Destination: $LIBRARY_DEST"
-            exit 1
-        }
-        echo "✅ Library file copied successfully"
-    else
-        echo "✅ Library destination already exists: $LIBRARY_DEST"
     fi
 
     # Check if virtual environment exists
@@ -332,12 +405,32 @@ install_comfyui() {
         rm -rf ComfyUI
     fi
     
-    # Clone ComfyUI (shallow clone at tag v0.3.57)
-    git clone --depth 1 --branch v0.3.57 https://github.com/comfyanonymous/ComfyUI.git || {
-        echo "❌ Failed to clone ComfyUI repository." >&2
-        exit 1
+    # Get ComfyUI version (use environment variable or fetch latest)
+    if [ -n "${COMFYUI_VERSION:-}" ]; then
+        COMFYUI_TAG="${COMFYUI_VERSION}"
+        echo "📌 Using pinned version: ${COMFYUI_TAG}"
+    else
+        echo "🔍 Fetching latest ComfyUI version..."
+        if [ -f /opt/runpod/scripts/get_latest_version.sh ]; then
+            COMFYUI_TAG=$(/opt/runpod/scripts/get_latest_version.sh)
+        else
+            echo "⚠️  Version script not found, using master branch"
+            COMFYUI_TAG="master"
+        fi
+        echo "✅ Using version: ${COMFYUI_TAG}"
+    fi
+    
+    # Clone ComfyUI with determined version
+    git clone --depth 1 --branch "${COMFYUI_TAG}" https://github.com/comfyanonymous/ComfyUI.git || {
+        echo "⚠️  Branch ${COMFYUI_TAG} not found, trying master..." >&2
+        git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git || {
+            echo "❌ Failed to clone ComfyUI repository." >&2
+            exit 1
+        }
     }
     cd ComfyUI
+    
+    export PIP_INSTALL_FLAGS="--user --no-cache-dir"
     
     # Check if requirements.txt exists
     if [ ! -f requirements.txt ]; then
@@ -348,36 +441,23 @@ install_comfyui() {
     # Install Python dependencies (without PyTorch, already installed)
     grep -v -E "^torch([^a-z]|$)|torchvision|torchaudio" requirements.txt | grep -v "^#" | grep -v "^$" > /tmp/filtered_requirements.txt
     if [ -s /tmp/filtered_requirements.txt ]; then
-        pip install --no-cache-dir -r /tmp/filtered_requirements.txt
+        python3 -m pip install ${PIP_INSTALL_FLAGS} -r /tmp/filtered_requirements.txt
     else
         echo "ℹ️  No additional ComfyUI Python dependencies detected."
     fi
     rm -f /tmp/filtered_requirements.txt
-    pip install --no-cache-dir librosa soundfile av moviepy
+    python3 -m pip install ${PIP_INSTALL_FLAGS} librosa soundfile av moviepy
     
-    # Install ComfyUI Manager
-    mkdir -p custom_nodes
-    cd custom_nodes
-    git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git || {
-        echo "❌ Failed to clone ComfyUI-Manager repository." >&2
-        exit 1
-    }
-    
-    # Check if ComfyUI-Manager directory exists
-    if [ ! -d "ComfyUI-Manager" ]; then
-        echo "❌ ComfyUI-Manager directory not found after clone!" >&2
-        exit 1
+    # Install custom nodes using installation script
+    if [ -f /opt/runpod/scripts/install_custom_nodes.sh ]; then
+        echo "🔌 Installing custom nodes..."
+        PIP_INSTALL_FLAGS="--user --no-cache-dir" /opt/runpod/scripts/install_custom_nodes.sh /workspace/ComfyUI || {
+            echo "⚠️  Custom nodes installation had issues, continuing..." >&2
+        }
+    else
+        echo "⚠️  Custom nodes installation script not found, skipping..."
     fi
     
-    cd ComfyUI-Manager
-    
-    # Check if requirements.txt exists
-    if [ ! -f requirements.txt ]; then
-        echo "❌ requirements.txt not found in ComfyUI-Manager!" >&2
-        exit 1
-    fi
-    
-    pip install --no-cache-dir -r requirements.txt
     cd /workspace/ComfyUI
     
     echo "✅ ComfyUI installation completed!"
@@ -547,6 +627,12 @@ cd /workspace/ComfyUI
 echo "Loading H200 optimizations..."
 python3 h200_optimizations.py
 
+# Apply advanced performance optimizations
+if [ -f /opt/runpod/scripts/optimize_performance.py ]; then
+    echo "⚡ Applying performance optimizations..."
+    python3 /opt/runpod/scripts/optimize_performance.py || echo "⚠️  Performance optimizations had issues, continuing..."
+fi
+
 echo "⚡ Starting ComfyUI with H200 launch flags..."
 
 # Final safety check before starting ComfyUI
@@ -557,6 +643,16 @@ if [ ! -f "/workspace/ComfyUI/main.py" ]; then
     exit 1
 fi
 
+# Check if torch.compile is available (PyTorch 2.0+)
+TORCH_COMPILE_ENABLED=""
+if python3 -c "import torch; print(int(torch.__version__.split('.')[0]) >= 2)" 2>/dev/null | grep -q "1"; then
+    # Enable torch.compile if available (20-30% speed boost)
+    TORCH_COMPILE_ENABLED="--enable-compile"
+    echo "✅ torch.compile enabled (PyTorch 2.0+)"
+else
+    echo "ℹ️  torch.compile not available (requires PyTorch 2.0+)"
+fi
+
 # Launch parameters (ComfyUI as main process)
 exec python main.py \
     --listen 0.0.0.0 \
@@ -564,11 +660,23 @@ exec python main.py \
     --highvram \
     --bf16-vae \
     --disable-smart-memory \
-    --preview-method auto
+    --preview-method auto \
+    ${TORCH_COMPILE_ENABLED}
 EOF
 
 # Make start script executable
 RUN chmod +x /usr/local/bin/start_comfyui_h200.sh
+
+# Create dedicated runtime user
+RUN useradd -m -r -s /bin/bash comfy && \
+    chown -R comfy:comfy /workspace /opt/runpod && \
+    mkdir -p /home/comfy/.cache && chown -R comfy:comfy /home/comfy/.cache
+
+# Healthcheck to ensure ComfyUI is responding
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 CMD curl -fsS http://localhost:8188/queue/status || exit 1
+
+# Switch to non-root user
+USER comfy
 
 # --- PART 6: Startup & usage ---
 

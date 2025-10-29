@@ -29,10 +29,63 @@
 - **Value**: `/workspace`
 - **Description**: Override only if your RunPod volume mounts to a different path.
 
+### ComfyUI Version (Optional)
+- **Variable**: `COMFYUI_VERSION`
+- **Value**: `v0.3.67`, `master`, or any valid git tag/branch
+- **Description**: Pin a specific ComfyUI version. If not set, the system automatically fetches the latest release tag from GitHub. Examples:
+  - `v0.3.67` - Pin to specific version
+  - `master` - Use latest master branch
+  - Leave unset - Automatically use latest release tag
+- **Note**: When building Docker images, you can also use build argument: `--build-arg COMFYUI_VERSION=v0.3.67`
+
 ## Usage Tips
 - Set these variables in the RunPod pod template before launching.
 - When running locally, pass them with `docker run -e VAR=value`.
 - For sensitive values such as `HF_TOKEN`, prefer RunPod secrets or `.env` files.
+
 ### Ports
 - **Port 8188**: ComfyUI web interface.
 - **Port 8888**: Jupyter Lab (only available when `JUPYTER_ENABLE=true`).
+
+## Debugging
+
+### Check if Jupyter started
+```bash
+# Check Jupyter logs
+tail -f /workspace/jupyter.log
+
+# Check if Jupyter process is running
+ps aux | grep jupyter
+```
+
+### Check if Model Download started
+```bash
+# Check model download logs
+tail -f /workspace/model_download.log
+
+# Check if download process is running
+pgrep -f download_models.py
+```
+
+### Verify Environment Variables
+```bash
+# Check normalized values during startup
+docker logs <container-id> | grep "DEBUG:"
+```
+
+### Common Issues
+
+#### Jupyter not starting
+- **Cause**: `JUPYTER_ENABLE` not set to truthy value
+- **Solution**: Set `JUPYTER_ENABLE=true` (exact case doesn't matter)
+- **Debug**: Check logs with `docker logs <container-id> | grep JUPYTER`
+
+#### Model Download not starting  
+- **Cause**: `DOWNLOAD_MODELS` not set to truthy value
+- **Solution**: Set `DOWNLOAD_MODELS=true` (exact case doesn't matter)
+- **Debug**: Check logs with `docker logs <container-id> | grep DOWNLOAD_MODELS`
+
+#### Models not found
+- **Cause**: `models_download.json` or `comfyui_models_complete_library.md` not copied to container
+- **Solution**: Rebuild container with latest Dockerfile
+- **Debug**: Check if files exist in `/opt/runpod/` and `/workspace/`

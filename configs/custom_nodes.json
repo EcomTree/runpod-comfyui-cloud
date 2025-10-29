@@ -1,0 +1,45 @@
+{
+  "custom_nodes": [
+    {
+      "name": "ComfyUI-Manager",
+      "repo": "https://github.com/ltdrdata/ComfyUI-Manager.git",
+      "description": "Essential GUI for installing/managing other custom nodes with auto-update functionality",
+      "branch": "master",
+      "requirements": true,
+      "priority": 1
+    },
+    {
+      "name": "ComfyUI-Impact-Pack",
+      "repo": "https://github.com/ltdrdata/ComfyUI-Impact-Pack.git",
+      "description": "Advanced masking, segmentation, object detection, and image enhancement utilities",
+      "branch": "master",
+      "requirements": true,
+      "priority": 2
+    },
+    {
+      "name": "rgthree-comfy",
+      "repo": "https://github.com/rgthree/rgthree-comfy.git",
+      "description": "Quality of life improvements, better node organization, and workflow optimization tools",
+      "branch": "main",
+      "requirements": true,
+      "priority": 3
+    },
+    {
+      "name": "ComfyUI-Advanced-ControlNet",
+      "repo": "https://github.com/Kosinkadink/ComfyUI-Advanced-ControlNet.git",
+      "description": "Enhanced ControlNet support with multiple ControlNet chaining and advanced pose/depth control",
+      "branch": "main",
+      "requirements": true,
+      "priority": 4
+    },
+    {
+      "name": "ComfyUI-VideoHelperSuite",
+      "repo": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
+      "description": "Video input/output support, frame interpolation, and video to image sequence conversion",
+      "branch": "main",
+      "requirements": true,
+      "priority": 5
+    }
+  ]
+}
+

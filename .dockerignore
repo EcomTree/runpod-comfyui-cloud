@@ -1,70 +1,14 @@
-# Docker ignore for RunPod ComfyUI H200
-
-# Git
-.git/
+.git
 .gitignore
-
-# Documentation (not needed in container)
-README.md
-docs/
-*.md
-
-# Exception: Include model documentation needed by container
-!comfyui_models_complete_library.md
-!README_MODELS.md
-
-# Build artifacts
-build/
-dist/
-*.log
-*.tmp
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files  
-.DS_Store
-Thumbs.db
-
-# Python cache
 __pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-
-# Virtual environments
-venv/
-env/
-.env
-.cursor/
-
-# Node.js
+*.pyc
+*.pyo
+*.log
 node_modules/
-npm-debug.log
-
-# Testing
-tests/
-test/
-.coverage
-htmlcov/
-
-# Scripts (not needed in container)
-.github/
-
-# Memory bank
-memory-bank/
-.memory-bank/
-
-# Secrets
+workspace/
+outputs/
+venv/
+.venv/
 .env
-*.key
-*.pem
-secrets/
-
-# Temporary
-tmp/
-temp/
-.tmp/
+.env.*
+Dockerfile.*

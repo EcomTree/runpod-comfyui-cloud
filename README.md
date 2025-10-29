@@ -8,14 +8,16 @@ Production-ready ComfyUI Docker image optimized for NVIDIA H200 and RTX 5090 GPU
 
 ## ✨ Features
 
-- **🎨 ComfyUI v0.3.57** with latest performance optimizations
-- **🤖 Automatic model download** - 200+ validated models on demand
+- **🎨 ComfyUI Latest** - Automatically fetches latest version (configurable via `COMFYUI_VERSION`)
+- **🔌 5 Essential Custom Nodes** - Pre-installed: Manager, Impact-Pack, rgthree, Advanced-ControlNet, VideoHelperSuite
+- **🤖 Automatic model download** - 200+ validated models on demand via `models_download.json`
 - **📊 Jupyter Lab** integrated development environment
 - **🔥 H200 GPU optimizations** for maximum performance
 - **🛡️ Crash-loop protection** with fallback mechanisms
 - **⚡ Fast startup** under 3 minutes
 - **💰 Cost optimized** RTX 5090 support ($0.69/hr)
 - **🔐 Optional Jupyter Lab password protection** for enhanced security
+- **🔄 Dynamic version management** - Always get latest features automatically
 
 ## 🎯 Supported Hardware
 
@@ -72,19 +74,26 @@ Once deployed:
 runpod-comfyui-cloud/
 ├── Dockerfile                        # Main Docker image definition
 ├── comfyui_models_complete_library.md # Complete model library (200+ models)
+├── models_download.json              # JSON model configuration (primary)
 ├── README.md                         # This file
 ├── README_MODELS.md                  # Model download documentation
 ├── LICENSE                           # MIT License
 ├── requirements.txt                  # Development dependencies
 ├── runpod-template-example.json      # RunPod template configuration
+├── configs/
+│   └── custom_nodes.json            # Custom nodes configuration
 ├── docs/
 │   ├── deployment-guide.md          # Deployment instructions
+│   ├── environment-variables.md    # Environment variables reference
+│   ├── custom-nodes.md             # Custom nodes documentation
 │   ├── troubleshooting.md           # Common issues & solutions
 │   └── gpu-compatibility.md         # GPU compatibility matrix
 └── scripts/
     ├── build.sh                     # Docker build script
     ├── deploy.sh                    # RunPod deployment script
     ├── test.sh                      # Local testing script
+    ├── get_latest_version.sh        # Fetch latest ComfyUI version
+    ├── install_custom_nodes.sh      # Install custom nodes
     ├── download_models.py           # Automatic model downloader
     └── verify_links.py              # Link verification tool
 ```
@@ -150,6 +159,46 @@ cat /workspace/model_download.log
 ```
 
 ## 🔧 Configuration
+
+### 🎨 ComfyUI Version Control
+
+By default, the image automatically fetches the latest ComfyUI release. You can pin a specific version:
+
+**Option 1: Environment Variable (Runtime)**
+```bash
+# Use latest version (default)
+# Don't set COMFYUI_VERSION
+
+# Pin to specific version
+COMFYUI_VERSION=v0.3.67
+
+# Use master branch
+COMFYUI_VERSION=master
+```
+
+**Option 2: Build Argument (Build Time)**
+```bash
+docker buildx build \
+  --build-arg COMFYUI_VERSION=v0.3.67 \
+  --platform linux/amd64 \
+  -t ecomtree/comfyui-cloud:latest .
+```
+
+### 🔌 Custom Nodes
+
+Five essential custom nodes are pre-installed:
+
+1. **ComfyUI-Manager** - GUI for managing custom nodes
+2. **ComfyUI-Impact-Pack** - Advanced masking and image enhancement
+3. **rgthree-comfy** - Quality of life improvements
+4. **ComfyUI-Advanced-ControlNet** - Enhanced ControlNet support
+5. **ComfyUI-VideoHelperSuite** - Video processing utilities
+
+See [docs/custom-nodes.md](docs/custom-nodes.md) for detailed documentation.
+
+**To add more custom nodes:**
+- Edit `configs/custom_nodes.json` and rebuild
+- Or use ComfyUI-Manager GUI in the web interface
 
 ### 🤖 Automatic Model Download
 
