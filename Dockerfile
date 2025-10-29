@@ -516,6 +516,34 @@ if [ ! -f /workspace/.comfyui/user_settings.json ]; then
     fi
 fi
 
+# RunPod Secret Support: Check for RunPod-style secret variables
+# RunPod may expose secrets as RUNPOD_SECRET_<NAME> or through /etc/runpod-volume/secrets/
+if [ -z "${JUPYTER_ENABLE:-}" ] && [ -n "${RUNPOD_SECRET_JUPYTER_ENABLE:-}" ]; then
+    echo "🔍 Using RUNPOD_SECRET_JUPYTER_ENABLE"
+    export JUPYTER_ENABLE="${RUNPOD_SECRET_JUPYTER_ENABLE}"
+fi
+
+if [ -z "${DOWNLOAD_MODELS:-}" ] && [ -n "${RUNPOD_SECRET_DOWNLOAD_MODELS:-}" ]; then
+    echo "🔍 Using RUNPOD_SECRET_DOWNLOAD_MODELS"
+    export DOWNLOAD_MODELS="${RUNPOD_SECRET_DOWNLOAD_MODELS}"
+fi
+
+if [ -z "${HF_TOKEN:-}" ] && [ -n "${RUNPOD_SECRET_HF_TOKEN:-}" ]; then
+    echo "🔍 Using RUNPOD_SECRET_HF_TOKEN"
+    export HF_TOKEN="${RUNPOD_SECRET_HF_TOKEN}"
+fi
+
+# Check for secrets file (alternative RunPod mechanism)
+if [ -f "/etc/runpod-volume/secrets/jupyter_enable" ] && [ -z "${JUPYTER_ENABLE:-}" ]; then
+    echo "🔍 Reading JUPYTER_ENABLE from secrets file"
+    export JUPYTER_ENABLE="$(cat /etc/runpod-volume/secrets/jupyter_enable 2>/dev/null || echo '')"
+fi
+
+if [ -f "/etc/runpod-volume/secrets/download_models" ] && [ -z "${DOWNLOAD_MODELS:-}" ]; then
+    echo "🔍 Reading DOWNLOAD_MODELS from secrets file"
+    export DOWNLOAD_MODELS="$(cat /etc/runpod-volume/secrets/download_models 2>/dev/null || echo '')"
+fi
+
 # Normalize runtime feature flags
 JUPYTER_ENABLE_RAW="${JUPYTER_ENABLE:-}"
 set +e
@@ -546,6 +574,10 @@ if [ "$DOWNLOAD_MODELS_STATUS" -ne 0 ]; then
     echo "⚠️  Unrecognized value for DOWNLOAD_MODELS ('${DOWNLOAD_MODELS_DISPLAY}'). Defaulting to disabled."
 fi
 echo "🔍 DEBUG: DOWNLOAD_MODELS raw='${DOWNLOAD_MODELS_DISPLAY}' normalized='${DOWNLOAD_MODELS_VALUE}'"
+
+# Debug: Print all environment variables starting with JUPYTER, DOWNLOAD, or RUNPOD
+echo "🔍 DEBUG: Environment variable check:"
+env | grep -E "^(JUPYTER|DOWNLOAD|RUNPOD|HF_)" | sort || echo "   (no matching variables found)"
 
 # Start Jupyter Lab in the background (port 8888)
 if [ "${JUPYTER_ENABLE_VALUE:-false}" = "true" ]; then
