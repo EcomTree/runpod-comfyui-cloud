@@ -41,9 +41,13 @@ RUN set -e; \
     }; \
     cd ComfyUI && rm -rf .git
 
-RUN INSTALL_REQUIREMENTS=false SKIP_EXISTING=false /opt/build/scripts/install_custom_nodes.sh /opt/build/ComfyUI && \
-    find /opt/build/ComfyUI -name ".git" -type d -prune -exec rm -rf {} + && \
-    find /opt/build/ComfyUI -name "__pycache__" -type d -prune -exec rm -rf {} +
+RUN set +e; \
+    INSTALL_REQUIREMENTS=false SKIP_EXISTING=false /opt/build/scripts/install_custom_nodes.sh /opt/build/ComfyUI; \
+    EXIT_CODE=$?; \
+    set -e; \
+    echo "Custom node installation completed with exit code: $EXIT_CODE"; \
+    find /opt/build/ComfyUI -name ".git" -type d -prune -exec rm -rf {} + 2>/dev/null || true; \
+    find /opt/build/ComfyUI -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
 FROM ${BASE_IMAGE} AS runtime
 
