@@ -1,0 +1,25 @@
+{
+  "theme": "dark",
+  "auto_queue": true,
+  "auto_save_interval": 300,
+  "show_node_id": false,
+  "canvas": {
+    "snap_to_grid": true,
+    "grid_size": 20,
+    "zoom_speed": 1.1
+  },
+  "performance": {
+    "preview_quality": "medium",
+    "enable_webgl": true,
+    "max_history": 50
+  },
+  "workflow": {
+    "auto_arrange": false,
+    "link_render_mode": "spline",
+    "highlight_connections": true
+  },
+  "ui_scale": 1.0,
+  "show_minimap": true,
+  "node_opacity": 1.0,
+  "link_line_width": 2
+}
