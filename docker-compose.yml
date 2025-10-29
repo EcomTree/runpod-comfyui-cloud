@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  comfyui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: runpod-comfyui-cloud:dev
+    ports:
+      - "8188:8188"
+      - "8888:8888"
+    environment:
+      DOWNLOAD_MODELS: "false"
+      JUPYTER_ENABLE: "true"
+      COMFYUI_VERSION: ""
+    volumes:
+      - ./workspace:/workspace
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8188/queue/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped

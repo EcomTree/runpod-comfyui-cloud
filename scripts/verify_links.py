@@ -230,69 +230,100 @@ def get_max_workers():
         return default_workers
 
 
+def extract_links_from_json(json_file):
+    """Extracts all Hugging Face links from models_download.json."""
+    try:
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        links = []
+        for category, urls in data.items():
+            if isinstance(urls, list):
+                for url in urls:
+                    if isinstance(url, str) and "huggingface.co" in url:
+                        links.append(url)
+        
+        return links
+    except Exception as e:
+        print(f"❌ Error reading JSON file: {e}")
+        return []
+
+
 def main():
     """Main function."""
     print("🔍 DEBUG: Starting link verification...")
 
-    # Multiple possible locations for the markdown file
-    possible_paths = [
+    # Try JSON file first (new format), then fallback to markdown (legacy)
+    json_paths = [
+        Path("/opt/runpod/models_download.json"),  # Docker source
+        Path("/workspace/models_download.json"),  # Docker destination
+        Path(__file__).parent.parent / "models_download.json",  # Local dev
+    ]
+    
+    markdown_paths = [
         Path("/opt/runpod/comfyui_models_complete_library.md"),  # Docker source
         Path("/workspace/comfyui_models_complete_library.md"),  # Docker destination
         Path(__file__).parent.parent / "comfyui_models_complete_library.md",  # Local dev
     ]
 
-    markdown_file = None
-    for path in possible_paths:
-        print(f"🔍 DEBUG: Checking for markdown file at: {path}")
+    # Try JSON first
+    source_file = None
+    file_type = None
+    
+    print("🔍 Looking for models_download.json...")
+    for path in json_paths:
+        print(f"🔍 DEBUG: Checking for JSON file at: {path}")
         if path.exists():
-            markdown_file = path
-            print(f"✅ Found markdown file: {path}")
+            source_file = path
+            file_type = "json"
+            print(f"✅ Found JSON file: {path}")
             break
-
-    if not markdown_file:
-        print("❌ comfyui_models_complete_library.md not found in any location!")
-        print("🔍 DEBUG: Tried paths:")
-        for path in possible_paths:
-            print(f"   {path} - {'EXISTS' if path.exists() else 'NOT FOUND'}")
-
-        print("\n🔍 DEBUG: Available files in key directories:")
-        # Extract unique parent directories from possible_paths, preserving order
-        parent_dirs = list(dict.fromkeys(p.parent.resolve() for p in possible_paths))
-        for path in parent_dirs:
+    
+    # Fallback to markdown if JSON not found
+    if not source_file:
+        print("⚠️  models_download.json not found, trying markdown fallback...")
+        for path in markdown_paths:
+            print(f"🔍 DEBUG: Checking for markdown file at: {path}")
             if path.exists():
-                try:
-                    files = list(path.glob("*.md"))
-                    if files:
-                        print(f"   {path}:")
-                        for f in files:
-                            print(f"     - {f.name}")
-                    else:
-                        print(f"   {path}: (no .md files)")
-                except Exception as e:
-                    print(f"   {path}: (error: {e})")
+                source_file = path
+                file_type = "markdown"
+                print(f"✅ Found markdown file: {path}")
+                break
 
+    if not source_file:
+        print("❌ Neither models_download.json nor comfyui_models_complete_library.md found!")
+        print("🔍 DEBUG: Tried paths:")
+        print("\nJSON paths:")
+        for path in json_paths:
+            print(f"   {path} - {'EXISTS' if path.exists() else 'NOT FOUND'}")
+        print("\nMarkdown paths:")
+        for path in markdown_paths:
+            print(f"   {path} - {'EXISTS' if path.exists() else 'NOT FOUND'}")
         sys.exit(1)
 
-    # Read the markdown file
-    try:
-        print(f"📖 Reading markdown file: {markdown_file}")
-        with open(markdown_file, "r", encoding="utf-8") as f:
-            content = f.read()
-        print(f"✅ Successfully read {len(content)} characters from markdown file")
-
-        # Debug: Show first few lines
-        lines = content.split("\n")[:10]
-        print("🔍 DEBUG: First 10 lines of markdown file:")
-        for i, line in enumerate(lines, 1):
-            print(f"   {i:2d}: {line}")
-
-    except Exception as e:
-        print(f"❌ Error reading markdown file: {e}")
-        sys.exit(1)
-
-    # Extract links
-    print("🔍 Extracting links from documentation...")
-    links = extract_huggingface_links(content)
+    # Extract links based on file type
+    print(f"🔍 Extracting links from {file_type} file...")
+    if file_type == "json":
+        links = extract_links_from_json(source_file)
+        if links:
+            print(f"✅ Successfully extracted {len(links)} links from JSON")
+    else:
+        try:
+            print(f"📖 Reading markdown file: {source_file}")
+            with open(source_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            print(f"✅ Successfully read {len(content)} characters from markdown file")
+            
+            # Debug: Show first few lines
+            lines = content.split("\n")[:10]
+            print("🔍 DEBUG: First 10 lines of markdown file:")
+            for i, line in enumerate(lines, 1):
+                print(f"   {i:2d}: {line}")
+            
+            links = extract_huggingface_links(content)
+        except Exception as e:
+            print(f"❌ Error reading markdown file: {e}")
+            sys.exit(1)
 
     if not links:
         print("❌ No Hugging Face links found!")

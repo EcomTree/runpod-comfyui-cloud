@@ -1,240 +1,217 @@
-# ComfyUI Model Auto-Download Feature
+# ComfyUI Models Configuration
 
-## Übersicht
+This document explains how to use the `models_download.json` file for automated model downloads.
 
-Das Docker-Image enthält jetzt ein automatisches Model-Download-System, das alle validierten ComfyUI-Modelle aus der `comfyui_models_complete_library.md` herunterlädt.
+## Overview
 
-## Funktionen
+The `models_download.json` file contains a curated list of ~160+ ComfyUI-compatible models organized by category. The download system automatically detects and uses this JSON file (with fallback to the markdown library if needed).
 
-- ✅ **Automatische Link-Verifikation** - Überprüft alle Links vor dem Download
-- 📦 **Intelligente Verzeichniszuordnung** - Sortiert Modelle automatisch in die richtigen ComfyUI-Ordner
-- 🔄 **Retry-Logik** - Wiederholt fehlgeschlagene Downloads automatisch
-- 📊 **Download-Statistiken** - Zeigt Fortschritt und Endergebnisse an
-- 💾 **Zusammenfassung** - Erstellt eine detaillierte Übersicht aller heruntergeladenen Modelle
+## File Location
 
-## Verwendung
-
-### Automatischer Download beim Container-Start
-
-Setze die Environment-Variable beim Start des Containers:
-
-```bash
-# Docker RunPod Template
-DOWNLOAD_MODELS=true
-HF_TOKEN=hf_xxx
+The `models_download.json` file should be located in the project root directory:
+```
+/Users/sebastianhein/Development/runpod-comfyui-cloud/models_download.json
 ```
 
-> `HF_TOKEN` ist optional – ohne Token schlagen private/commercial Links (z. B. FLUX.1 Dev) mit **401 Unauthorized** fehl.
+In Docker containers, it's automatically copied to:
+- Source: `/opt/runpod/models_download.json`
+- Destination: `/workspace/models_download.json`
 
-**HF_TOKEN Format / Format (DE/EN):**
+## Categories
 
-| Deutsch                                                                 | English                                                                |
-|------------------------------------------------------------------------|------------------------------------------------------------------------|
-| Muss mit `hf_` beginnen und mindestens 10 Zeichen lang sein            | Must start with `hf_` and be at least 10 characters long               |
-| Token ohne `hf_` Präfix oder leere Tokens werden ignoriert             | Tokens without the `hf_` prefix or empty tokens will be ignored        |
-| Token bekommst du unter: <https://huggingface.co/settings/tokens>      | You can get your token at: <https://huggingface.co/settings/tokens>    |
-### Manuelle Ausführung
+The JSON file includes the following model categories:
 
-Falls du den Download später starten möchtest:
+### Image Generation
+- **checkpoints**: SD1.5, SDXL, SD2.1, community fine-tunes (16 models)
+- **unet**: FLUX.1 family, SD3.5, SD3 (22 models)
+- **diffusion_models**: Alternative architectures (HunyuanDiT, Kolors, etc.) (10 models)
+- **vae**: Variational autoencoders (8 models)
+- **text_encoders**: CLIP and T5 encoders (9 models)
 
-```bash
-# Im laufenden Container
-docker exec -it <container_name> /usr/local/bin/download_comfyui_models.sh
-```
+### Control & Style
+- **controlnet**: ControlNet v1.1 and SDXL variants (22 models)
+- **t2i_adapter**: T2I-Adapter models (4 models)
+- **ipadapter**: IP-Adapter models for style transfer (10 models)
+- **loras**: LoRA models (7 models)
 
-Oder direkt mit Python:
+### Enhancement
+- **upscale_models**: ESRGAN, RealESRGAN, SwinIR, face restoration (12 models)
+- **inpainting**: Specialized inpainting models (3 models)
 
-```bash
-# Im Container
-cd /workspace
-source /opt/runpod/model_dl_venv/bin/activate
-python3 /opt/runpod/scripts/download_models.py /workspace
-```
+### Video Generation
+- **video_models**: CogVideoX, SVD, LTX, Mochi, HunyuanVideo, WanVideo (24 models)
+- **animatediff**: AnimateDiff motion modules (7 models)
 
-## Voraussetzungen
+### Optimized Versions
+- **flux_gguf**: Quantized FLUX.1 models (4 models)
+- **sd35_gguf**: Quantized SD3.5 models (3 models)
+- **wan_gguf**: Quantized WanVideo models (2 models)
 
-- **Speicherplatz**: Mindestens 200-300 GB freier Speicher für alle Modelle
-- **Internet**: Stabile Verbindung für große Downloads
-- **Zeit**: Downloads können mehrere Stunden dauern
+### Vision & Utilities
+- **clip_vision**: CLIP Vision encoders (4 models)
+- **style_models**: (empty, reserved for future use)
+- **clip**: (empty, reserved for future use)
 
-## Download-Prozess
+## Usage
 
-1. **Link-Verifikation** - Überprüft alle Hugging Face Links auf Erreichbarkeit
-2. **Verzeichnisstruktur** - Erstellt die komplette ComfyUI-Modellstruktur
-3. **Paralleler Download** - Lädt Modelle sequentiell für Stabilität
-4. **Fortschrittsanzeige** - Zeigt Download-Status und -geschwindigkeit
-5. **Zusammenfassung** - Erstellt `downloaded_models_summary.json`
+### Automatic Download
 
-## Model-Kategorien
-
-Das System sortiert Modelle automatisch in die richtigen Verzeichnisse:
-
-- `checkpoints/` - SD1.5, SDXL, SD3 Basis-Checkpoints
-- `unet/` - FLUX, SD3, Hunyuan, Kolors UNet-Modelle
-- `vae/` - VAE-Modelle für Latent Space
-- `clip/` - CLIP Text Encoder
-- `t5/` - T5 Text Encoder
-- `clip_vision/` - CLIP Vision Encoder für IP-Adapter
-- `controlnet/` - ControlNet Modelle
-- `loras/` - LoRA-Modelle
-- `upscale_models/` - ESRGAN, RealESRGAN, SwinIR
-- `animatediff_models/` - AnimateDiff Motion Module
-- `ipadapter/` - IP-Adapter Modelle
-
-## Troubleshooting
-
-### Model-Download startet nicht
-
-**Symptom**: Ordner in `/workspace/ComfyUI/models/` bleiben leer, keine Download-Aktivität
-
-**Ursache**: Die `comfyui_models_complete_library.md` fehlt im Container oder Environment-Variablen sind nicht korrekt gesetzt
-
-**Lösung**: Image neu bauen nach dem neuesten Commit:
+To enable automatic model downloads during container startup:
 
 ```bash
-# Lokaler Build mit erweiterten Debug-Ausgaben
-./scripts/build.sh
-
-# Oder via RunPod: Neues Image aus Registry pullen
+docker run -e DOWNLOAD_MODELS=true -e HF_TOKEN=<your-token> <image>
 ```
 
-**Verifikation**: Im laufenden Container prüfen:
+### Manual Download
+
+You can also use the download scripts manually:
 
 ```bash
-# Checken ob die Datei existiert
-ls -lh /opt/runpod/comfyui_models_complete_library.md
-ls -lh /workspace/comfyui_models_complete_library.md
+# Verify links first
+python3 scripts/verify_links.py
 
-# Download-Log prüfen (mit erweiterten Debug-Informationen)
-tail -f /workspace/model_download.log
-
-# Verifikations-Ergebnisse prüfen
-cat /workspace/link_verification_results.json | head -20
-
-# Debug-Informationen aus Container-Logs
-docker logs <container_name> | grep -E "(DEBUG|Model|Download)" | tail -20
+# Download all models
+python3 scripts/download_models.py /workspace
 ```
 
-### Enhanced Debugging
+## File Structure
 
-Das neue System bietet erweiterte Debug-Funktionen:
+The JSON file follows this structure:
 
-1. **Environment Variable Validation**: Das System prüft jetzt `DOWNLOAD_MODELS` und `HF_TOKEN` beim Start
-2. **File Existence Checks**: Automatische Überprüfung aller erforderlichen Dateien
-3. **Background Process Monitoring**: Detaillierte Logs über den Download-Fortschritt
-4. **Alternative Path Detection**: Automatische Suche nach Dateien in verschiedenen Verzeichnissen
+```json
+{
+  "category_name": [
+    "https://huggingface.co/repo/model/resolve/main/model.safetensors",
+    "https://huggingface.co/another/model/resolve/main/model.pth"
+  ]
+}
+```
 
-### Manuelle Fehlersuche
+## How It Works
 
-Falls der automatische Download nicht funktioniert:
+1. **Detection**: The `verify_links.py` script first looks for `models_download.json`
+2. **Extraction**: All Hugging Face URLs are extracted from the JSON
+3. **Verification**: Each link is checked for accessibility (HEAD request)
+4. **Download**: Valid links are downloaded to the appropriate ComfyUI directories
+5. **Classification**: Models are automatically sorted into the correct folders
 
-#### Option 1: Erweitertes Debugging
+## Model Classification
 
+Models are automatically classified based on filename patterns:
+
+| Pattern | Target Directory |
+|---------|-----------------|
+| `flux`, `sd3`, `auraflow` | `unet/` |
+| `vae`, `kl-f8-anime` | `vae/` |
+| `clip_vision` | `clip_vision/` |
+| `controlnet`, `canny`, `depth` | `controlnet/` |
+| `lora` | `loras/` |
+| `esrgan`, `upscale` | `upscale_models/` |
+| `animatediff` | `animatediff_models/` |
+| `ip-adapter` | `ipadapter/` |
+| `.safetensors`, `.ckpt` | `checkpoints/` (fallback) |
+
+## Customization
+
+You can customize the model list by editing `models_download.json`:
+
+1. Add new URLs to existing categories
+2. Remove unwanted models
+3. Create new categories (requires updating classification logic)
+
+### Example: Adding a New Model
+
+```json
+{
+  "checkpoints": [
+    "existing-model-url",
+    "https://huggingface.co/your-repo/your-model/resolve/main/model.safetensors"
+  ]
+}
+```
+
+## Fallback Behavior
+
+If `models_download.json` is not found, the system automatically falls back to:
+- `comfyui_models_complete_library.md` (legacy markdown format)
+
+This ensures backward compatibility.
+
+## Storage Requirements
+
+**Total Size**: ~400-500 GB for all models (varies based on quantization)
+
+### Size Breakdown by Category:
+- **Image Models (Full)**: ~150-200 GB
+- **Image Models (FP8)**: ~75-100 GB
+- **Video Models**: ~150-200 GB
+- **ControlNets**: ~20-30 GB
+- **Upscalers**: ~5-10 GB
+- **LoRAs**: ~1-5 GB
+- **Quantized (GGUF)**: ~50-100 GB
+
+**Recommendation**: Use FP8 versions for GPU memory optimization.
+
+## Performance Tips
+
+1. **Use Quantized Models**: GGUF versions (Q4/Q5/Q8) reduce VRAM usage significantly
+2. **FP8 Models**: ~50% smaller than FP16 with minimal quality loss
+3. **Parallel Downloads**: Set `MAX_WORKERS=10` for faster downloads (default: 5)
+4. **HF Token**: Required for some gated models (e.g., FLUX.1 Dev)
+
+## Debugging
+
+### Check Model Sources
 ```bash
-# Container mit erweitertem Debugging starten
-docker run -e DOWNLOAD_MODELS=true -e HF_TOKEN=hf_xxx ecomtree/comfyui-cloud:latest
-
-# Nach 30 Sekunden Debug-Logs prüfen
-docker logs <container_name> | tail -50
-
-# Model-Download manuell triggern
-docker exec <container_name> bash -c "
-    cd /workspace
-    source /opt/runpod/model_dl_venv/bin/activate
-    python3 /opt/runpod/scripts/verify_links.py
-    python3 /opt/runpod/scripts/download_models.py /workspace
-"
+# In container
+ls -lh /opt/runpod/models_download.json
+ls -lh /workspace/models_download.json
 ```
 
-#### Option 2: Verwenden des Manual-Download-Script
-
-Für eine interaktivere Erfahrung gibt es ein spezielles Manual-Download-Script:
-
+### Verify JSON Syntax
 ```bash
-# Im Container ausführen
-docker exec -it <container_name> /opt/runpod/scripts/manual_download.sh
-
-# Oder direkt aus dem Host
-docker exec <container_name> bash /opt/runpod/scripts/manual_download.sh
+python3 -m json.tool models_download.json > /dev/null && echo "Valid JSON"
 ```
 
-Das Manual-Download-Script bietet:
-- ✅ **Interaktive Überprüfung** aller Voraussetzungen
-- ✅ **Schritt-für-Schritt** Anleitung durch den Download-Prozess
-- ✅ **Automatische** Link-Verifikation
-- ✅ **Detaillierte** Fortschrittsanzeigen
-- ✅ **Zusammenfassung** der heruntergeladenen Modelle
-
-### Jupyter "File Load Error" beim Öffnen von Model-Ordnern
-
-**Symptom**: Jupyter zeigt "File Load Error for 'put_vae_here'" oder ähnliche Fehler
-
-**Ursache**: Die Model-Ordner enthalten nur `.placeholder` Dateien (z.B. `put_vae_here`) - diese sind Dummy-Dateien die Jupyter nicht öffnen kann
-
-**Lösung**: Das ist kein Fehler! Die Placeholder-Dateien sind nur da um die Git-Ordnerstruktur zu erhalten. Sobald der Model-Download läuft, werden echte Model-Dateien hinzugefügt.
-
-**Workaround**: Einfach ignorieren oder nur echte Model-Dateien (`.safetensors`, `.ckpt`) öffnen.
-
-### Downloads schlagen fehl
-
+### Check Downloaded Models
 ```bash
-# Erneut versuchen
-cd /workspace
-source /opt/runpod/model_dl_venv/bin/activate
-python3 /opt/runpod/scripts/download_models.py /workspace
+# See download summary
+cat /workspace/downloaded_models_summary.json
+
+# List all downloaded models
+find /workspace/ComfyUI/models -type f -name "*.safetensors" -o -name "*.ckpt" -o -name "*.pth"
 ```
 
-### Speicherplatz prüfen
+## Related Files
 
+- `comfyui_models_complete_library.md` - Comprehensive model documentation (legacy/reference)
+- `scripts/verify_links.py` - Link verification script
+- `scripts/download_models.py` - Model download script
+- `docs/environment-variables.md` - Environment variable documentation
+
+## License Information
+
+Models have different licenses:
+- **Apache 2.0**: FLUX.1 Schnell, most VAEs
+- **FLUX.1 Dev License**: Non-commercial without enterprise license
+- **Stability AI Community**: SD3.x (commercial < $1M revenue)
+- **CreativeML OpenRAIL**: SD1.5/SDXL (open with restrictions)
+
+**Always check individual model licenses before commercial use!**
+
+## Support
+
+For issues related to:
+- Model downloads: Check `/workspace/model_download.log`
+- Link verification: Run `python3 scripts/verify_links.py`
+- Missing models: Rebuild container or manually copy `models_download.json`
+
+## Updates
+
+Last updated: October 2025
+
+The model list is periodically updated. To get the latest:
 ```bash
-# Verfügbaren Speicher anzeigen
-df -h /workspace
-
-# Model-Größen anzeigen
-du -sh /workspace/ComfyUI/models/*
+git pull origin main
+docker build -t your-image .
 ```
-
-### Link-Verifikation erneut ausführen
-
-```bash
-# Links erneut überprüfen
-cd /workspace
-source /opt/runpod/model_dl_venv/bin/activate
-python3 /opt/runpod/scripts/verify_links.py
-```
-
-## Statistiken
-
-Nach dem Download erhältst du:
-
-- **Link-Verifikationsbericht** in `link_verification_results.json`
-- **Download-Zusammenfassung** in `downloaded_models_summary.json`
-- **Detaillierte Logs** während des Downloads
-
-## Performance-Tipps
-
-1. **Volume-Größe**: Verwende mindestens 500 GB Volume für alle Modelle
-2. **Network Storage**: Nutze schnelle Netzwerk-Volumes für bessere Download-Geschwindigkeit
-3. **Parallele Downloads**: Standardmäßig sequentiell für Stabilität
-4. **Retry-Logic**: Automatische Wiederholung bei Netzwerkfehlern
-
-## Sicherheit
-
-- ✅ **Validierte Links**: Nur funktionierende Hugging Face Links werden verwendet
-- ✅ **Saubere Downloads**: Streaming-Download ohne Zwischenspeicherung
-- ✅ **Fehlerbehandlung**: Sichere Behandlung von Netzwerkfehlern
-- ✅ **Keine schädlichen Scripts**: Reine Python-Implementierung
-
-## Lizenzhinweise
-
-- **FLUX.1 Dev**: Erfordert Enterprise-Lizenz für kommerzielle Nutzung
-- **SD3.x**: Community License mit Umsatzbegrenzung
-- **Andere Modelle**: Verschiedene Open-Source Lizenzen
-
-Siehe `comfyui_models_complete_library.md` für detaillierte Lizenzinformationen.
-
----
-
-**Maintained by:** [@tensorvisuals](https://github.com/tensorvisuals)  
-**Status:** ✅ Production Ready  
-**Last Updated:** 2025-10-24

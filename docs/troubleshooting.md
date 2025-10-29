@@ -247,6 +247,98 @@ CUDA out of memory
 - `sebastianhein/comfyui-h200:complete` - With authentication
 - `sebastianhein/comfyui-h200:final` - H200 baseline
 
+## Advanced Troubleshooting
+
+### ❌ Model Download Issues
+
+#### Parallel Downloads Failing
+**Symptoms:** Downloads timing out, connection errors
+**Solutions:**
+- ✅ Reduce parallel workers: `DOWNLOAD_MAX_WORKERS=2`
+- ✅ Check internet connection stability
+- ✅ Verify HF_TOKEN for protected models
+
+#### Checksum Verification Failed
+**Symptoms:** Model downloads complete but verification fails
+**Solutions:**
+- ✅ Re-download the model: `python scripts/model_manager.py download <model>`
+- ✅ Check disk space: `df -h /workspace`
+- ✅ Verify network integrity
+
+#### Resume Not Working
+**Symptoms:** Downloads restart from beginning
+**Solutions:**
+- ✅ Ensure server supports HTTP Range headers
+- ✅ Check partial file exists and is valid
+- ✅ Clear incomplete downloads and retry
+
+### ❌ Monitoring Issues
+
+#### GPU Stats Not Showing
+**Problem:** Monitor shows "No GPU stats available"
+**Solutions:**
+- ✅ Install pynvml: `pip install pynvml>=11.5.0`
+- ✅ Check NVIDIA drivers: `nvidia-smi`
+- ✅ Verify container has GPU access: `docker run --gpus all`
+
+#### Health Check Failures
+**Symptoms:** Health check returns exit code 1
+**Solutions:**
+- ✅ Check ComfyUI is running: `curl http://localhost:8188/queue`
+- ✅ Verify GPU access: `nvidia-smi`
+- ✅ Check VRAM usage: `nvidia-smi --query-gpu=memory.used,memory.total`
+- ✅ Review logs: `cat /workspace/logs/comfyui.log`
+
+#### Prometheus Metrics Not Accessible
+**Problem:** Cannot access metrics on port 9090
+**Solutions:**
+- ✅ Verify monitor started with `--prometheus-port 9090`
+- ✅ Check port is exposed: `docker ps` or RunPod console
+- ✅ Test locally: `curl http://localhost:9090/metrics`
+
+### ❌ Security Issues
+
+#### API Authentication Not Working
+**Problem:** Requests succeed without API key
+**Solutions:**
+- ✅ Verify `COMFYUI_API_KEY` is set
+- ✅ Check ComfyUI configuration
+- ✅ Restart container to apply changes
+
+#### Security Scan Failures
+**Problem:** Security check reports issues
+**Solutions:**
+- ✅ Review reported issues: `python scripts/security_check.py`
+- ✅ Fix file permissions: `chmod 700 /home/comfy/.cache`
+- ✅ Update to HTTPS URLs in configs
+- ✅ Rotate API keys and secrets
+
+### ❌ Testing Issues
+
+#### Tests Failing
+**Problem:** pytest returns errors
+**Solutions:**
+- ✅ Install test dependencies: `pip install -r requirements.txt`
+- ✅ Check models_download.json is valid JSON
+- ✅ Verify all URLs use HTTPS
+- ✅ Run specific test: `pytest tests/test_models.py -v`
+
+### ❌ Model Manager Issues
+
+#### Model Not Found
+**Problem:** `model_manager.py search` returns no results
+**Solutions:**
+- ✅ Check model exists in models_download.json
+- ✅ Try partial name match: `search "flux"`
+- ✅ Verify JSON file is readable
+
+#### Prune Dry Run Not Working
+**Problem:** Models not being identified as unused
+**Solutions:**
+- ✅ Update models_download.json with latest configuration
+- ✅ Check file naming matches exactly
+- ✅ Run with `--no-dry-run` to actually remove files
+
 ## Getting Help
 
 ### Log Collection
@@ -258,6 +350,15 @@ docker logs $(docker ps -q) > container.log
 # System info
 nvidia-smi > gpu-status.txt
 df -h > disk-usage.txt
+
+# Monitoring logs
+cat /workspace/logs/monitor.log > monitor.log
+
+# Health check
+bash scripts/health_check.sh > health-check.txt 2>&1
+
+# Security scan
+python scripts/security_check.py > security-scan.txt 2>&1
 ```
 
 ### Support Resources
