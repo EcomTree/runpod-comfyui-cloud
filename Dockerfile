@@ -650,7 +650,7 @@ PY
     MAX_RETRIES=$((JUPYTER_STARTUP_TIMEOUT * 2))  # Check every 0.5 seconds
     echo "⏳ Waiting for Jupyter Lab to start (timeout: ${JUPYTER_STARTUP_TIMEOUT}s)..."
     
-    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]; do
       if ps -p "$JUPYTER_PID" > /dev/null 2>&1; then
         echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, password protected)"
         echo "📋 Logs: /workspace/logs/jupyter.log"
