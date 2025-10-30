@@ -392,7 +392,7 @@ EOF
 
 # Create H200-optimized start script (modern HEREDOC syntax)
 # IMPORTANT: copy to /usr/local/bin/ so it works with volume mounts on /workspace
-RUN <<EOF cat > /usr/local/bin/start_comfyui_h200.sh
+RUN <<'EOF' cat > /usr/local/bin/start_comfyui_h200.sh
 #!/bin/bash
 set -e
 
