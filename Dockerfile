@@ -79,6 +79,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install ninja flash-attn --no-build-isolation && \
     pip install tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
 
+# Install JupyterLab for interactive development
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install jupyterlab notebook jupyter-server-proxy
+
 # Setup workspace
 WORKDIR /workspace
 
@@ -521,10 +525,12 @@ fi
 secret_env() {
     VAR_NAME="$1"
     SECRET_VAR="RUNPOD_SECRET_${VAR_NAME}"
-    # Use indirect expansion to check and set variables
-    if [ -z "${!VAR_NAME:-}" ] && [ -n "${!SECRET_VAR:-}" ]; then
+    # Use indirect expansion for variable lookup
+    VAR_VALUE="${!VAR_NAME}"
+    SECRET_VALUE="${!SECRET_VAR}"
+    if [ -z "${VAR_VALUE}" ] && [ -n "${SECRET_VALUE}" ]; then
         echo "🔍 Using ${SECRET_VAR}"
-        export "${VAR_NAME}=${!SECRET_VAR}"
+        export "${VAR_NAME}=${SECRET_VALUE}"
     fi
 }
 
@@ -536,7 +542,8 @@ read_secret_env() {
     VAR_NAME="$1"
     FILE_PATH="$2"
     # Only set if file exists and env var is unset
-    if [ -f "$FILE_PATH" ] && [ -z "${!VAR_NAME:-}" ]; then
+    VAR_VALUE=$(eval echo "\$${VAR_NAME}")
+    if [ -f "$FILE_PATH" ] && [ -z "${VAR_VALUE}" ]; then
         echo "🔍 Reading $VAR_NAME from secrets file"
         export "${VAR_NAME}=$(cat "$FILE_PATH" 2>/dev/null || echo '')"
     fi
@@ -585,6 +592,20 @@ if [ "${JUPYTER_ENABLE_VALUE:-false}" = "true" ]; then
   echo "📊 Starting Jupyter Lab on port 8888..."
   cd /workspace
   
+  # Ensure logs directory exists
+  mkdir -p /workspace/logs
+  
+  # Pre-flight check: Verify Jupyter is installed
+  if ! command -v jupyter >/dev/null 2>&1; then
+    echo "❌ ERROR: Jupyter is not installed!" | tee -a /workspace/logs/jupyter.log
+    echo "   This indicates a build problem with the Docker image." | tee -a /workspace/logs/jupyter.log
+    echo "   Expected: 'jupyter' command should be available in PATH" | tee -a /workspace/logs/jupyter.log
+    echo "   Please rebuild the image with JupyterLab installed." | tee -a /workspace/logs/jupyter.log
+    exit 1
+  fi
+  
+  echo "✅ Jupyter command found: $(command -v jupyter)"
+  
   # Check if password is set
   if [ -n "${JUPYTER_PASSWORD:-}" ]; then
     # Start with password authentication
@@ -615,17 +636,54 @@ PY
     HASHED_PASSWORD="${HASHED_PASSWORD_AND_ERROR}"
     # Remove plaintext password from environment
     unset JUPYTER_PASSWORD
+    
+    # Start Jupyter with error capture
+    echo "🚀 Launching Jupyter Lab with password authentication..."
     nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
         --ServerApp.password="${HASHED_PASSWORD}" \
-        --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
-    echo "✅ Jupyter Lab started in background (password protected)"
+        --notebook-dir=/workspace > /workspace/logs/jupyter.log 2>&1 &
+    JUPYTER_PID=$!
+    
+    # Verify process started
+    sleep 2
+    if ps -p "$JUPYTER_PID" > /dev/null 2>&1; then
+      echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, password protected)"
+      echo "📋 Logs: /workspace/logs/jupyter.log"
+    else
+      echo "❌ ERROR: Jupyter Lab failed to start!" | tee -a /workspace/logs/jupyter.log
+      echo "📋 Check logs for details: /workspace/logs/jupyter.log" | tee -a /workspace/logs/jupyter.log
+      if [ -f /workspace/logs/jupyter.log ]; then
+        echo "Last 10 lines of log:" | tee -a /workspace/logs/jupyter.log
+        tail -10 /workspace/logs/jupyter.log
+      fi
+      exit 1
+    fi
   else
     # Start without auth (no password provided)
     echo "⚠️  Starting Jupyter Lab WITHOUT authentication"
+    echo "   Anyone with network access can execute arbitrary code!"
+    
+    # Start Jupyter with error capture
+    echo "🚀 Launching Jupyter Lab without authentication..."
     nohup jupyter lab --no-browser --ip=0.0.0.0 --port=8888 --allow-root \
         --ServerApp.token='' --ServerApp.password='' \
-        --notebook-dir=/workspace > /workspace/jupyter.log 2>&1 &
-    echo "✅ Jupyter Lab started in background (no auth required)"
+        --notebook-dir=/workspace > /workspace/logs/jupyter.log 2>&1 &
+    JUPYTER_PID=$!
+    
+    # Verify process started
+    sleep 2
+    if ps -p "$JUPYTER_PID" > /dev/null 2>&1; then
+      echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, no auth required)"
+      echo "📋 Logs: /workspace/logs/jupyter.log"
+    else
+      echo "❌ ERROR: Jupyter Lab failed to start!" | tee -a /workspace/logs/jupyter.log
+      echo "📋 Check logs for details: /workspace/logs/jupyter.log" | tee -a /workspace/logs/jupyter.log
+      if [ -f /workspace/logs/jupyter.log ]; then
+        echo "Last 10 lines of log:" | tee -a /workspace/logs/jupyter.log
+        tail -10 /workspace/logs/jupyter.log
+      fi
+      exit 1
+    fi
   fi
 else
   echo "ℹ️  Jupyter disabled (set JUPYTER_ENABLE=true to start)"
