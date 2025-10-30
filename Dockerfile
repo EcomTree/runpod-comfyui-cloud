@@ -525,9 +525,9 @@ fi
 secret_env() {
     VAR_NAME="$1"
     SECRET_VAR="RUNPOD_SECRET_${VAR_NAME}"
-    # Use eval for indirect variable expansion
-    VAR_VALUE=$(eval echo "\$${VAR_NAME}")
-    SECRET_VALUE=$(eval echo "\$${SECRET_VAR}")
+    # Use indirect expansion for variable lookup
+    VAR_VALUE="${!VAR_NAME}"
+    SECRET_VALUE="${!SECRET_VAR}"
     if [ -z "${VAR_VALUE}" ] && [ -n "${SECRET_VALUE}" ]; then
         echo "🔍 Using ${SECRET_VAR}"
         export "${VAR_NAME}=${SECRET_VALUE}"
@@ -651,7 +651,7 @@ PY
     echo "⏳ Waiting for Jupyter Lab to start (timeout: ${JUPYTER_STARTUP_TIMEOUT}s)..."
     
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-      if ps -p $JUPYTER_PID > /dev/null 2>&1; then
+      if ps -p "$JUPYTER_PID" > /dev/null 2>&1; then
         echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, password protected)"
         echo "📋 Logs: /workspace/logs/jupyter.log"
         break
@@ -661,7 +661,7 @@ PY
     done
     
     # Final check after timeout
-    if ! ps -p $JUPYTER_PID > /dev/null 2>&1; then
+    if ! ps -p "$JUPYTER_PID" > /dev/null 2>&1; then
       echo "❌ ERROR: Jupyter Lab failed to start within ${JUPYTER_STARTUP_TIMEOUT}s!" | tee -a /workspace/logs/jupyter.log
       echo "📋 Check logs for details: /workspace/logs/jupyter.log" | tee -a /workspace/logs/jupyter.log
       if [ -f /workspace/logs/jupyter.log ]; then
@@ -689,7 +689,7 @@ PY
     echo "⏳ Waiting for Jupyter Lab to start (timeout: ${JUPYTER_STARTUP_TIMEOUT}s)..."
     
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-      if ps -p $JUPYTER_PID > /dev/null 2>&1; then
+      if ps -p "$JUPYTER_PID" > /dev/null 2>&1; then
         echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, no auth required)"
         echo "📋 Logs: /workspace/logs/jupyter.log"
         break
@@ -699,7 +699,7 @@ PY
     done
     
     # Final check after timeout
-    if ! ps -p $JUPYTER_PID > /dev/null 2>&1; then
+    if ! ps -p "$JUPYTER_PID" > /dev/null 2>&1; then
       echo "❌ ERROR: Jupyter Lab failed to start within ${JUPYTER_STARTUP_TIMEOUT}s!" | tee -a /workspace/logs/jupyter.log
       echo "📋 Check logs for details: /workspace/logs/jupyter.log" | tee -a /workspace/logs/jupyter.log
       if [ -f /workspace/logs/jupyter.log ]; then
