@@ -525,9 +525,9 @@ fi
 secret_env() {
     VAR_NAME="$1"
     SECRET_VAR="RUNPOD_SECRET_${VAR_NAME}"
-    # Use eval for indirect variable expansion
-    VAR_VALUE=$(eval echo "\$${VAR_NAME}")
-    SECRET_VALUE=$(eval echo "\$${SECRET_VAR}")
+    # Use indirect expansion for variable lookup
+    VAR_VALUE="${!VAR_NAME}"
+    SECRET_VALUE="${!SECRET_VAR}"
     if [ -z "${VAR_VALUE}" ] && [ -n "${SECRET_VALUE}" ]; then
         echo "🔍 Using ${SECRET_VAR}"
         export "${VAR_NAME}=${SECRET_VALUE}"
