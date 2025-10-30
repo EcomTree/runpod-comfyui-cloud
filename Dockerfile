@@ -525,9 +525,9 @@ fi
 secret_env() {
     VAR_NAME="$1"
     SECRET_VAR="RUNPOD_SECRET_${VAR_NAME}"
-    # Use eval for indirect expansion (compatible with sh and bash)
-    VAR_VALUE=$(eval echo "\$${VAR_NAME}")
-    SECRET_VALUE=$(eval echo "\$${SECRET_VAR}")
+    # Use bash indirect expansion for variable lookup
+    VAR_VALUE="${!VAR_NAME}"
+    SECRET_VALUE="${!SECRET_VAR}"
     if [ -z "${VAR_VALUE}" ] && [ -n "${SECRET_VALUE}" ]; then
         echo "🔍 Using ${SECRET_VAR}"
         export "${VAR_NAME}=${SECRET_VALUE}"
@@ -542,7 +542,7 @@ read_secret_env() {
     VAR_NAME="$1"
     FILE_PATH="$2"
     # Only set if file exists and env var is unset
-    VAR_VALUE=$(eval echo "\$${VAR_NAME}")
+    VAR_VALUE="${!VAR_NAME}"
     if [ -f "$FILE_PATH" ] && [ -z "${VAR_VALUE}" ]; then
         echo "🔍 Reading $VAR_NAME from secrets file"
         export "${VAR_NAME}=$(cat "$FILE_PATH" 2>/dev/null || echo '')"
