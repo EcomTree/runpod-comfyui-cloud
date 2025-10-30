@@ -79,6 +79,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install ninja flash-attn --no-build-isolation && \
     pip install tensorrt accelerate transformers diffusers scipy opencv-python Pillow numpy
 
+# Install JupyterLab for interactive development
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install jupyterlab notebook jupyter-server-proxy
+
 # Setup workspace
 WORKDIR /workspace
 
@@ -521,10 +525,12 @@ fi
 secret_env() {
     VAR_NAME="$1"
     SECRET_VAR="RUNPOD_SECRET_${VAR_NAME}"
-    # Use indirect expansion to check and set variables
-    if [ -z "${!VAR_NAME:-}" ] && [ -n "${!SECRET_VAR:-}" ]; then
+    # Use eval for indirect variable expansion
+    VAR_VALUE=$(eval echo "\$${VAR_NAME}")
+    SECRET_VALUE=$(eval echo "\$${SECRET_VAR}")
+    if [ -z "${VAR_VALUE}" ] && [ -n "${SECRET_VALUE}" ]; then
         echo "🔍 Using ${SECRET_VAR}"
-        export "${VAR_NAME}=${!SECRET_VAR}"
+        export "${VAR_NAME}=${SECRET_VALUE}"
     fi
 }
 
@@ -536,7 +542,8 @@ read_secret_env() {
     VAR_NAME="$1"
     FILE_PATH="$2"
     # Only set if file exists and env var is unset
-    if [ -f "$FILE_PATH" ] && [ -z "${!VAR_NAME:-}" ]; then
+    VAR_VALUE=$(eval echo "\$${VAR_NAME}")
+    if [ -f "$FILE_PATH" ] && [ -z "${VAR_VALUE}" ]; then
         echo "🔍 Reading $VAR_NAME from secrets file"
         export "${VAR_NAME}=$(cat "$FILE_PATH" 2>/dev/null || echo '')"
     fi
