@@ -644,13 +644,25 @@ PY
         --notebook-dir=/workspace > /workspace/logs/jupyter.log 2>&1 &
     JUPYTER_PID=$!
     
-    # Verify process started
-    sleep 2
-    if ps -p $JUPYTER_PID > /dev/null 2>&1; then
-      echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, password protected)"
-      echo "📋 Logs: /workspace/logs/jupyter.log"
-    else
-      echo "❌ ERROR: Jupyter Lab failed to start!" | tee -a /workspace/logs/jupyter.log
+    # Verify process started with retry loop
+    JUPYTER_STARTUP_TIMEOUT=${JUPYTER_STARTUP_TIMEOUT:-10}
+    RETRY_COUNT=0
+    MAX_RETRIES=$((JUPYTER_STARTUP_TIMEOUT * 2))  # Check every 0.5 seconds
+    echo "⏳ Waiting for Jupyter Lab to start (timeout: ${JUPYTER_STARTUP_TIMEOUT}s)..."
+    
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+      if ps -p $JUPYTER_PID > /dev/null 2>&1; then
+        echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, password protected)"
+        echo "📋 Logs: /workspace/logs/jupyter.log"
+        break
+      fi
+      sleep 0.5
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+    done
+    
+    # Final check after timeout
+    if ! ps -p $JUPYTER_PID > /dev/null 2>&1; then
+      echo "❌ ERROR: Jupyter Lab failed to start within ${JUPYTER_STARTUP_TIMEOUT}s!" | tee -a /workspace/logs/jupyter.log
       echo "📋 Check logs for details: /workspace/logs/jupyter.log" | tee -a /workspace/logs/jupyter.log
       if [ -f /workspace/logs/jupyter.log ]; then
         echo "Last 10 lines of log:" | tee -a /workspace/logs/jupyter.log
@@ -670,13 +682,25 @@ PY
         --notebook-dir=/workspace > /workspace/logs/jupyter.log 2>&1 &
     JUPYTER_PID=$!
     
-    # Verify process started
-    sleep 2
-    if ps -p $JUPYTER_PID > /dev/null 2>&1; then
-      echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, no auth required)"
-      echo "📋 Logs: /workspace/logs/jupyter.log"
-    else
-      echo "❌ ERROR: Jupyter Lab failed to start!" | tee -a /workspace/logs/jupyter.log
+    # Verify process started with retry loop
+    JUPYTER_STARTUP_TIMEOUT=${JUPYTER_STARTUP_TIMEOUT:-10}
+    RETRY_COUNT=0
+    MAX_RETRIES=$((JUPYTER_STARTUP_TIMEOUT * 2))  # Check every 0.5 seconds
+    echo "⏳ Waiting for Jupyter Lab to start (timeout: ${JUPYTER_STARTUP_TIMEOUT}s)..."
+    
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+      if ps -p $JUPYTER_PID > /dev/null 2>&1; then
+        echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, no auth required)"
+        echo "📋 Logs: /workspace/logs/jupyter.log"
+        break
+      fi
+      sleep 0.5
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+    done
+    
+    # Final check after timeout
+    if ! ps -p $JUPYTER_PID > /dev/null 2>&1; then
+      echo "❌ ERROR: Jupyter Lab failed to start within ${JUPYTER_STARTUP_TIMEOUT}s!" | tee -a /workspace/logs/jupyter.log
       echo "📋 Check logs for details: /workspace/logs/jupyter.log" | tee -a /workspace/logs/jupyter.log
       if [ -f /workspace/logs/jupyter.log ]; then
         echo "Last 10 lines of log:" | tee -a /workspace/logs/jupyter.log
