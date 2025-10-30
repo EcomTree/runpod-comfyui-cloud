@@ -646,7 +646,7 @@ PY
     
     # Verify process started
     sleep 2
-    if ps -p $JUPYTER_PID > /dev/null 2>&1; then
+    if ps -p "$JUPYTER_PID" > /dev/null 2>&1; then
       echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, password protected)"
       echo "📋 Logs: /workspace/logs/jupyter.log"
     else
@@ -672,7 +672,7 @@ PY
     
     # Verify process started
     sleep 2
-    if ps -p $JUPYTER_PID > /dev/null 2>&1; then
+    if ps -p "$JUPYTER_PID" > /dev/null 2>&1; then
       echo "✅ Jupyter Lab started successfully (PID: $JUPYTER_PID, no auth required)"
       echo "📋 Logs: /workspace/logs/jupyter.log"
     else
